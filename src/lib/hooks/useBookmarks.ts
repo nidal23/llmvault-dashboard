@@ -1,7 +1,5 @@
-//Bookmark-related hooks
-
 // src/lib/hooks/useBookmarks.ts
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { getBookmarks, createBookmark, updateBookmark, deleteBookmark } from '../api/bookmarks';
 import { Bookmark, BookmarkWithFolder } from '../supabase/database.types';
@@ -14,33 +12,57 @@ interface BookmarkFilters {
   label?: string;
 }
 
-export const useBookmarks = (initialFilters: BookmarkFilters = {}) => {
-  const { user } = useAuth();
-  const [bookmarks, setBookmarks] = useState<BookmarkWithFolder[]>([]);
+interface UseBookmarksOptions {
+  limit?: number;
+  initialData?: BookmarkWithFolder[];
+  cacheKey?: string;
+  sortBy?: string;
+  sortDirection?: 'asc' | 'desc';
+  autoFetch?: boolean;
+}
+
+export const useBookmarks = (initialFilters: BookmarkFilters = {}, options: UseBookmarksOptions = {}) => {
+  const { 
+    limit = 30, 
+    initialData = [],
+    autoFetch = true 
+  } = options;
+  
+  const { user, initialized } = useAuth();
+  const [bookmarks, setBookmarks] = useState<BookmarkWithFolder[]>(initialData);
   const [filters, setFilters] = useState<BookmarkFilters>(initialFilters);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(autoFetch);
+  const [isFetching, setIsFetching] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const [totalCount, setTotalCount] = useState(0);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
-  const limit = 30; // Number of bookmarks per page
+  const firstLoadComplete = useRef(false);
 
   // Fetch bookmarks based on filters
   const fetchBookmarks = useCallback(async (resetPagination = true) => {
     if (!user) {
-      setBookmarks([]);
+      setBookmarks(initialData);
       setIsLoading(false);
+      firstLoadComplete.current = true;
       return;
     }
+
+    if (isFetching) return;
 
     const currentPage = resetPagination ? 1 : page;
     
     if (resetPagination) {
       setPage(1);
-      setBookmarks([]);
+      if (!firstLoadComplete.current) {
+        setBookmarks(initialData);
+      }
     }
 
-    setIsLoading(true);
+    setIsFetching(true);
+    if (!firstLoadComplete.current) {
+      setIsLoading(true); 
+    }
     setError(null);
 
     try {
@@ -65,14 +87,21 @@ export const useBookmarks = (initialFilters: BookmarkFilters = {}) => {
         // This isn't an exact count, but gives a rough idea
         setTotalCount(data.length < limit ? data.length : data.length * 2);
       }
+      
+      firstLoadComplete.current = true;
     } catch (err) {
       console.error('Error fetching bookmarks:', err);
       setError(err instanceof Error ? err : new Error('Failed to fetch bookmarks'));
-      toast.error('Failed to load bookmarks');
+      
+      // Only show toast error if this is the initial load
+      if (!firstLoadComplete.current) {
+        toast.error('Failed to load bookmarks');
+      }
     } finally {
+      setIsFetching(false);
       setIsLoading(false);
     }
-  }, [user, filters, page, limit]);
+  }, [user, filters, page, limit, initialData, isFetching]);
 
   // Update filters
   const updateFilters = useCallback((newFilters: Partial<BookmarkFilters>) => {
@@ -81,21 +110,24 @@ export const useBookmarks = (initialFilters: BookmarkFilters = {}) => {
 
   // Load next page
   const loadMore = useCallback(() => {
-    if (!isLoading && hasMore) {
+    if (!isLoading && !isFetching && hasMore) {
       setPage(prev => prev + 1);
     }
-  }, [isLoading, hasMore]);
+  }, [isLoading, isFetching, hasMore]);
 
-  // Load bookmarks when filters or page changes
+  // Load bookmarks when filters change
   useEffect(() => {
-    fetchBookmarks(true);
-  }, [filters]);
+    if (autoFetch && initialized) {
+      fetchBookmarks(true);
+    }
+  }, [filters, initialized, autoFetch, fetchBookmarks]);
 
+  // Load more bookmarks when page changes
   useEffect(() => {
-    if (page > 1) {
+    if (page > 1 && initialized) {
       fetchBookmarks(false);
     }
-  }, [page]);
+  }, [page, initialized, fetchBookmarks]);
 
   // Create a new bookmark
   const handleCreateBookmark = useCallback(async (data: {
@@ -108,30 +140,56 @@ export const useBookmarks = (initialFilters: BookmarkFilters = {}) => {
   }) => {
     if (!user) throw new Error('User not authenticated');
   
+    // Generate a temporary ID for optimistic update
+    const tempId = `temp-${Date.now()}`;
+    
+    // Create optimistic bookmark
+    const optimisticBookmark: BookmarkWithFolder = {
+      id: tempId,
+      user_id: user.id,
+      folder_id: data.folder_id,
+      url: data.url,
+      title: data.title,
+      label: data.label || null, // Ensure label is string | null, not undefined
+      platform: data.platform || null, // Ensure platform is string | null, not undefined 
+      notes: data.notes || null, // Ensure notes is string | null, not undefined
+      created_at: new Date().toISOString(),
+      folder_name: undefined // TypeScript should still allow this if folder_name is optional
+    };
+    
+    // Update UI immediately for better responsiveness
+    const matchesFilters = (
+      (!filters.folderId || data.folder_id === filters.folderId) &&
+      (!filters.platform || data.platform === filters.platform) &&
+      (!filters.label || data.label === filters.label)
+    );
+    
+    if (matchesFilters) {
+      setBookmarks(prev => [optimisticBookmark, ...prev]);
+      setTotalCount(prev => prev + 1);
+    }
+  
     try {
       // The database has a trigger that checks the bookmark limit for free tier users
-      // It will throw an error if the limit is reached
       const newBookmark = await createBookmark(user.id, data);
       
-      // Update local state if the bookmark matches current filters
-      const matchesFilters = (
-        (!filters.folderId || newBookmark.folder_id === filters.folderId) &&
-        (!filters.platform || newBookmark.platform === filters.platform) &&
-        (!filters.label || newBookmark.label === filters.label)
-      );
-      
+      // Replace optimistic bookmark with real one
       if (matchesFilters) {
-        setBookmarks(prev => [newBookmark, ...prev]);
-        setTotalCount(prev => prev + 1);
+        setBookmarks(prev => prev.map(bookmark => 
+          bookmark.id === tempId ? newBookmark : bookmark
+        ));
       }
-      
-      // No need to manually refresh usage stats - the database trigger 'update_bookmark_count_trigger'
-      // will automatically increment the bookmark_count in the usage_stats table
       
       toast.success('Bookmark created successfully');
       return newBookmark;
     } catch (err) {
       console.error('Error creating bookmark:', err);
+      
+      // Remove optimistic bookmark on error
+      if (matchesFilters) {
+        setBookmarks(prev => prev.filter(bookmark => bookmark.id !== tempId));
+        setTotalCount(prev => prev - 1);
+      }
       
       // Check if the error is from the database trigger 'check_bookmark_limit'
       if (err instanceof Error && err.message.includes('Free tier users are limited to 30 bookmarks')) {
@@ -148,48 +206,68 @@ export const useBookmarks = (initialFilters: BookmarkFilters = {}) => {
   const handleUpdateBookmark = useCallback(async (id: string, updates: Partial<Bookmark>) => {
     if (!user) throw new Error('User not authenticated');
 
+    // Store original bookmark for rollback
+    const originalBookmark = bookmarks.find(b => b.id === id);
+    if (!originalBookmark) {
+      throw new Error('Bookmark not found');
+    }
+
+    // Apply optimistic update
+    setBookmarks(prev => prev.map(bookmark => 
+      bookmark.id === id ? { ...bookmark, ...updates } : bookmark
+    ));
+
     try {
       const updatedBookmark = await updateBookmark(user.id, id, updates);
-      
-      // Update local state
-      setBookmarks(prev => prev.map(bookmark => 
-        bookmark.id === id ? { ...bookmark, ...updates } : bookmark
-      ));
-      
       toast.success('Bookmark updated successfully');
       return updatedBookmark;
     } catch (err) {
       console.error('Error updating bookmark:', err);
+      
+      // Rollback on error
+      if (originalBookmark) {
+        setBookmarks(prev => prev.map(bookmark => 
+          bookmark.id === id ? originalBookmark : bookmark
+        ));
+      }
+      
       toast.error('Failed to update bookmark');
       throw err;
     }
-  }, [user]);
+  }, [user, bookmarks]);
 
   // Delete a bookmark
   const handleDeleteBookmark = useCallback(async (id: string) => {
     if (!user) throw new Error('User not authenticated');
   
+    // Store deleted bookmark for potential rollback
+    const deletedBookmark = bookmarks.find(b => b.id === id);
+    
+    // Optimistic delete
+    setBookmarks(prev => prev.filter(bookmark => bookmark.id !== id));
+    setTotalCount(prev => prev - 1);
+  
     try {
       await deleteBookmark(user.id, id);
-      
-      // Update local state
-      setBookmarks(prev => prev.filter(bookmark => bookmark.id !== id));
-      setTotalCount(prev => prev - 1);
-      
-      // No need to manually refresh usage stats - the database trigger 'update_bookmark_count_trigger'
-      // will automatically decrement the bookmark_count in the usage_stats table
-      
       toast.success('Bookmark deleted successfully');
     } catch (err) {
       console.error('Error deleting bookmark:', err);
+      
+      // Rollback on error
+      if (deletedBookmark) {
+        setBookmarks(prev => [...prev, deletedBookmark]);
+        setTotalCount(prev => prev + 1);
+      }
+      
       toast.error('Failed to delete bookmark');
       throw err;
     }
-  }, [user]);
+  }, [user, bookmarks]);
 
   return {
     bookmarks,
     isLoading,
+    isFetching,
     error,
     filters,
     updateFilters,
