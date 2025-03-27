@@ -21,12 +21,17 @@ export const signOut = async () => {
 };
 
 export const getCurrentUser = async () => {
+  console.log('inside get current user')
   const { data: { session }, error } = await supabase.auth.getSession();
-  if (error) throw error;
+  console.log('sessiont user returned from get current user: ', session?.user)
+  if (error) {
+    console.log('ran into error in current user: ', error)
+  };
   return session?.user || null;
 };
 
 export const getProfile = async (userId: string) => {
+  console.log('function got called')
   const { data, error } = await supabase
     .from('profiles')
     .select('*')
@@ -41,7 +46,6 @@ export const updateProfile = async (userId: string, updates: {
   username?: string; 
   full_name?: string; 
   avatar_url?: string; 
-  bio?: string;
 }) => {
   const { data, error } = await supabase
     .from('profiles')
