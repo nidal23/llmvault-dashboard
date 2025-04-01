@@ -1,3 +1,4 @@
+//components/settings/SettingsPanel.tsx
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,23 +29,31 @@ import {
 } from "@/components/ui/dialog";
 import { X, Plus, Moon, Sun, Loader2, AlertCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { useUserSettings } from "@/lib/hooks/useUserSettings";
-import { useAuth } from "@/lib/context/AuthContext";
+import { useUserSettingsStore } from "@/lib/stores/useUserSettingsStore";
+import { useAuth } from "@/lib/hooks/useAuth";
 import { Json } from "@/lib/supabase/database.types";
 import { useSubscription } from "@/lib/context/SubscriptionContext";
+import { signOut } from "@/lib/api/auth";
 
 const SettingsPanel = () => {
-  const { user, profile, signOut } = useAuth();
+  const { user, profile } = useAuth();
   const { subscription, tier, isActive } = useSubscription();
   const { 
     settings, 
     isLoading,
-    isFetching,
+    fetchSettings,
     updateTheme, 
     updateDefaultLabels, 
-    // updateSettings,
     toggleAutoDetectPlatform 
-  } = useUserSettings();
+  } = useUserSettingsStore();
+
+
+  useEffect(() => {
+    if (user) {
+      fetchSettings(user.id);
+    }
+  }, [user, fetchSettings]);
+  
   
   // Local state that will be synced with the database
   const [isDarkMode, setIsDarkMode] = useState(false);
@@ -92,7 +101,7 @@ const SettingsPanel = () => {
     const newTheme = value ? 'dark' : 'light';
     
     try {
-      await updateTheme(newTheme);
+      await updateTheme(user.id, newTheme);
       // Toast is shown by the hook
     } catch (error) {
       console.log('error: ', error)
@@ -105,7 +114,7 @@ const SettingsPanel = () => {
     setAutoDetectPlatform(value);
     
     try {
-      await toggleAutoDetectPlatform();
+      await toggleAutoDetectPlatform(user.id);
       // Toast is shown by the hook
     } catch (error) {
       console.log('error: ', error)
@@ -115,6 +124,7 @@ const SettingsPanel = () => {
   };
   
   const handleAddLabel = () => {
+    if (!user) return;
     if (newLabel.trim() === "") return;
     if (labels.includes(newLabel.trim())) {
       toast.error("This label already exists");
@@ -126,18 +136,20 @@ const SettingsPanel = () => {
     setNewLabel("");
     
     // Save labels immediately for better UX
-    updateDefaultLabels(updatedLabels).catch(() => {
+    updateDefaultLabels(user.id, updatedLabels).catch(() => {
       // Revert on error
       setLabels(labels);
     });
   };
   
   const handleRemoveLabel = (label: string) => {
+    if (!user) return;
+    
     const updatedLabels = labels.filter((l) => l !== label);
     setLabels(updatedLabels);
     
     // Save labels immediately for better UX
-    updateDefaultLabels(updatedLabels).catch(() => {
+    updateDefaultLabels(user.id, updatedLabels).catch(() => {
       // Revert on error
       setLabels(labels);
     });
@@ -193,7 +205,7 @@ const SettingsPanel = () => {
                     id="auto-detect"
                     checked={autoDetectPlatform}
                     onCheckedChange={handleAutoDetectChange}
-                    disabled={isFetching}
+                    disabled={isLoading}
                   />
                 </div>
               </div>
@@ -291,7 +303,7 @@ const SettingsPanel = () => {
                     id="theme-mode"
                     checked={isDarkMode}
                     onCheckedChange={handleThemeChange}
-                    disabled={isFetching}
+                    disabled={isLoading}
                   />
                 </div>
               </div>
@@ -324,7 +336,7 @@ const SettingsPanel = () => {
                         size="icon"
                         className="h-4 w-4 rounded-full ml-1 hover:bg-secondary"
                         onClick={() => handleRemoveLabel(label)}
-                        disabled={isFetching}
+                        disabled={isLoading}
                       >
                         <X className="h-3 w-3" />
                         <span className="sr-only">Remove {label}</span>
@@ -345,13 +357,13 @@ const SettingsPanel = () => {
                         handleAddLabel();
                       }
                     }}
-                    disabled={isFetching}
+                    disabled={isLoading}
                   />
                   <Button 
                     variant="outline" 
                     size="icon"
                     onClick={handleAddLabel}
-                    disabled={!newLabel.trim() || isFetching}
+                    disabled={!newLabel.trim() || isLoading}
                   >
                     <Plus className="h-4 w-4" />
                     <span className="sr-only">Add label</span>
@@ -374,21 +386,21 @@ const SettingsPanel = () => {
               <div className="flex flex-col space-y-4">
                 <div className="flex items-center space-x-4">
                   <div className="rounded-full bg-primary/10 p-2 h-16 w-16 flex items-center justify-center">
-                    {profile?.avatar_url ? (
+                    {profile?.avatarUrl ? (
                       <img 
-                        src={profile.avatar_url} 
-                        alt={profile.full_name || "Profile"} 
+                        src={profile.avatarUrl} 
+                        alt={profile.fullName || "Profile"} 
                         className="h-full w-full rounded-full object-cover"
                       />
                     ) : (
                       <span className="text-2xl font-semibold text-primary">
-                        {(profile?.full_name || user?.email || 'U')[0].toUpperCase()}
+                        {(profile?.fullName || user?.email || 'U')[0].toUpperCase()}
                       </span>
                     )}
                   </div>
                   <div>
                     <p className="text-lg font-medium">
-                      {profile?.full_name || user?.user_metadata?.full_name || 'User'}
+                      {profile?.fullName || user?.user_metadata?.full_name || 'User'}
                     </p>
                     <p className="text-sm text-muted-foreground">{user?.email || 'No email available'}</p>
                     

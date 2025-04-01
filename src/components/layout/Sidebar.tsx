@@ -1,4 +1,5 @@
-import { useState } from "react";
+//components/layout/Sidebar.tsx
+import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { 
   LayoutDashboard,
@@ -25,8 +26,8 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useAuth } from "@/lib/context/AuthContext";
-import { useFolders } from "@/lib/hooks/useFolders";
+import { useAuth } from "@/lib/hooks/useAuth";
+import { useFoldersStore } from '@/lib/stores/useFoldersStore';
 import { toast } from "react-hot-toast";
 
 interface SidebarProps {
@@ -37,7 +38,7 @@ interface SidebarProps {
 const Sidebar = ({ open, onOpenChange }: SidebarProps) => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { initialized } = useAuth();
+  const { user } = useAuth();
   
   const [isNewFolderOpen, setIsNewFolderOpen] = useState(false);
   const [expandedFolders, setExpandedFolders] = useState<string[]>([]);
@@ -45,14 +46,29 @@ const Sidebar = ({ open, onOpenChange }: SidebarProps) => {
   const [parentFolderId, setParentFolderId] = useState<string | null>(null);
   
   // Use the folders hook instead of manually managing state and API calls
+  // const { 
+  //   folders, 
+  //   isLoading, 
+  //   error,
+  //   createFolder: handleCreateFolder 
+  // } = useFolders({ 
+  //   autoFetch: !!user 
+  // });
+
   const { 
     folders, 
     isLoading, 
     error,
-    createFolder: handleCreateFolder 
-  } = useFolders({ 
-    autoFetch: initialized 
-  });
+    createFolder: handleCreateFolder,
+    fetchFolders
+  } = useFoldersStore();
+
+  useEffect(() => {
+    if (user) {
+      fetchFolders(user.id);
+    }
+  }, [user, fetchFolders]);
+
 
   const toggleFolder = (folderId: string) => {
     if (expandedFolders.includes(folderId)) {
@@ -82,7 +98,8 @@ const Sidebar = ({ open, onOpenChange }: SidebarProps) => {
     }
     
     try {
-      await handleCreateFolder(newFolderName, parentFolderId);
+      // Note we now need to pass user.id
+      await handleCreateFolder(user.id, newFolderName, parentFolderId);
       
       // Reset form and close dialog
       setNewFolderName("");
@@ -90,7 +107,7 @@ const Sidebar = ({ open, onOpenChange }: SidebarProps) => {
       setIsNewFolderOpen(false);
     } catch (error) {
       console.log('error:', error)
-      // Error is handled inside the hook with toast messages
+      // Error is handled inside the store with toast messages
     }
   };
   

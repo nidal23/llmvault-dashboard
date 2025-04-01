@@ -1,6 +1,6 @@
 // src/lib/hooks/useFolders.ts
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../hooks/useAuth';
 import { getFolders, createFolder, updateFolder, deleteFolder, buildFolderTree } from '../api/folders';
 import { FolderWithCount } from '../supabase/database.types';
 import { toast } from 'react-hot-toast';
@@ -16,7 +16,7 @@ export const useFolders = (options: UseFoldersOptions = {}) => {
     autoFetch = true
   } = options;
   
-  const { user, initialized } = useAuth();
+  const { user } = useAuth();
   const [folders, setFolders] = useState<FolderWithCount[]>(initialData);
   const [folderTree, setFolderTree] = useState<FolderWithCount[]>([]);
   const [isLoading, setIsLoading] = useState(autoFetch);
@@ -48,7 +48,9 @@ export const useFolders = (options: UseFoldersOptions = {}) => {
     setError(null);
 
     try {
+      console.log('user id in get folders: ', user.id)
       const data = await getFolders(user.id);
+      console.log('data returned from get folders: ', data)
       setFolders(data);
       firstLoadComplete.current = true;
     } catch (err) {
@@ -67,10 +69,10 @@ export const useFolders = (options: UseFoldersOptions = {}) => {
 
   // Load folders when auth is initialized
   useEffect(() => {
-    if (autoFetch && initialized) {
+    if (autoFetch && user) {
       fetchFolders();
     }
-  }, [autoFetch, initialized, fetchFolders]);
+  }, [autoFetch, user, fetchFolders]);
 
   // Create a new folder with optimistic updates
   const handleCreateFolder = useCallback(async (name: string, parentId: string | null = null) => {

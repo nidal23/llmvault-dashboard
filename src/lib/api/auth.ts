@@ -1,59 +1,140 @@
-//Authentication operations
+
 // src/lib/api/auth.ts
 import { supabase } from '../supabase/client';
-// import type { Provider } from '@supabase/supabase-js';
+export interface UserProfile {
+  id: string;
+  email: string;
+  fullName?: string;
+  avatarUrl?: string;
+  username?: string;
+}
 
-export const signInWithGoogle = async () => {
+export async function signInWithGoogle(): Promise<{ data: any; error: any }> {
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
-      redirectTo: `${window.location.origin}/auth/callback`,
-    },
+      redirectTo: `${window.location.origin}/dashboard`,
+    }
   });
   
-  if (error) throw error;
-  return data;
-};
+  return { data, error };
+}
 
-export const signOut = async () => {
-  const { error } = await supabase.auth.signOut();
-  if (error) throw error;
-};
+export async function signOut(): Promise<void> {
+  await supabase.auth.signOut();
+}
 
-export const getCurrentUser = async () => {
-  console.log('inside get current user')
-  const { data: { session }, error } = await supabase.auth.getSession();
-  console.log('sessiont user returned from get current user: ', session?.user)
-  if (error) {
-    console.log('ran into error in current user: ', error)
-  };
-  return session?.user || null;
-};
+export async function getCurrentUser(): Promise<any> {
+  try {
+    console.log('inside get current user');
+    const response = await supabase.auth.getUser();
+    console.log('Raw response from getUser:', response); // Log the entire response
+    
+    if (response.error) {
+      console.error('Error in getUser response:', response.error);
+      return null;
+    }
+    
+    console.log('data from current user: ', response.data);
+    return response.data.user;
+  } catch (error) {
+    console.error('Error fetching current user:', error);
+    if (error instanceof Error) {
+      console.error('Error name:', error.name);
+      console.error('Error message:', error.message);
+      console.error('Error stack:', error.stack);
+    }
+    return null;
+  }
+}
 
-export const getProfile = async (userId: string) => {
-  console.log('function got called')
+export async function getUserProfile(): Promise<UserProfile | null> {
+  const user = await getCurrentUser();
+  
+  if (!user) {
+    return null;
+  }
+  
   const { data, error } = await supabase
     .from('profiles')
     .select('*')
-    .eq('id', userId)
+    .eq('id', user.id)
     .single();
-    
-  if (error) throw error;
-  return data;
-};
+  
+  if (error) {
+    console.error('Error fetching user profile:', error);
+    return null;
+  }
+  
+  // If this is a first-time login, create a profile
+  if (!data) {
+    return createInitialUserProfile(user);
+  }
+  
+  return {
+    id: data.id,
+    email: user.email,
+    fullName: data.full_name || undefined,
+    avatarUrl: data.avatar_url || undefined,
+    username: data.username || undefined
+  };
+}
 
-export const updateProfile = async (userId: string, updates: { 
-  username?: string; 
-  full_name?: string; 
-  avatar_url?: string; 
-}) => {
+async function createInitialUserProfile(user: any): Promise<UserProfile | null> {
   const { data, error } = await supabase
     .from('profiles')
-    .update(updates)
-    .eq('id', userId)
+    .insert({
+      id: user.id,
+      full_name: user.user_metadata?.full_name || user.user_metadata?.name,
+      avatar_url: user.user_metadata?.avatar_url,
+      created_at: new Date().toISOString()
+    })
     .select()
     .single();
-    
-  if (error) throw error;
-  return data;
-};
+  
+  if (error) {
+    console.error('Error creating user profile:', error);
+    return null;
+  }
+  
+  return {
+    id: data.id,
+    email: user.email,
+    fullName: data.full_name || undefined,
+    avatarUrl: data.avatar_url || undefined,
+    username: data.username || undefined
+  };
+}
+
+export async function updateUserProfile(profile: Partial<Omit<UserProfile, 'id' | 'email'>>): Promise<UserProfile | null> {
+  const user = await getCurrentUser();
+  
+  if (!user) {
+    return null;
+  }
+  
+  const { data, error } = await supabase
+    .from('profiles')
+    .update({
+      full_name: profile.fullName,
+      avatar_url: profile.avatarUrl,
+      username: profile.username,
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', user.id)
+    .select()
+    .single();
+  
+  if (error) {
+    console.error('Error updating user profile:', error);
+    return null;
+  }
+  
+  return {
+    id: data.id,
+    email: user.email,
+    fullName: data.full_name || undefined,
+    avatarUrl: data.avatar_url || undefined,
+    username: data.username || undefined
+  };
+}

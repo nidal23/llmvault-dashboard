@@ -1,16 +1,20 @@
+//pages/index.tsx
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Bookmark, ChevronRight, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import GoogleAuthButton from "@/components/auth/GoogleAuthButton";
-import { useAuth } from "@/lib/context/AuthContext";
+import { useAuth } from "../lib/hooks/useAuth";
 import { toast } from "sonner";
 
 const Index = () => {
   const navigate = useNavigate();
-  const { user, initialized } = useAuth();
+  const { user } = useAuth();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
+
+  console.log('user in index.ts: ', user);
+  
   const handleAuthSuccess = () => {
     setIsLoggedIn(true);
     toast.success("Successfully signed in!");
@@ -21,10 +25,10 @@ const Index = () => {
 
   // Use the auth context to determine if user is logged in
   useEffect(() => {
-    if (initialized) {
+    if (user) {
       setIsLoggedIn(!!user);
     }
-  }, [user, initialized]);
+  }, [user]);
 
   const scrollToPricing = (e: React.MouseEvent) => {
     e.preventDefault();
