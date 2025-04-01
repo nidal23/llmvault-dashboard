@@ -1,7 +1,7 @@
 // src/components/auth/ProtectedRoute.tsx
 import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
-import { useAuth } from '@/lib/context/AuthContext';
+import { useAuth } from '@/lib/hooks/useAuth';
 import { Loader2 } from 'lucide-react';
 
 interface ProtectedRouteProps {
@@ -9,11 +9,11 @@ interface ProtectedRouteProps {
 }
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
-  const { user, isLoading, initialized } = useAuth();
+  const { user, isLoading } = useAuth();
   const location = useLocation();
 
   // Show loading state only during initial auth load
-  if (isLoading && !initialized) {
+  if (isLoading && !user) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen">
         <Loader2 className="w-12 h-12 animate-spin text-primary" />
@@ -23,7 +23,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   }
 
   // Redirect to login if user is not authenticated after initialization
-  if (!user && initialized) {
+  if (!user ) {
     return <Navigate to="/" state={{ from: location }} replace />;
   }
 

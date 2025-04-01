@@ -1,13 +1,10 @@
-// Dashboard.tsx
 import { useEffect, useState } from "react";
 import Layout from "@/components/layout/Layout";
 import Stats from "@/components/dashboard/Stats";
 import BookmarkCard from "@/components/bookmarks/BookmarkCard";
-import { useAuth } from "@/lib/context/AuthContext";
-import { useBookmarks } from "@/lib/hooks/useBookmarks";
-import { getBookmarkStats } from "@/lib/api/bookmarks";
+import { useAuth } from "@/lib/hooks/useAuth";
+import { useBookmarksStore } from "@/lib/stores/useBookmarksStore";
 import { Loader2 } from "lucide-react";
-import { toast } from 'react-hot-toast';
 
 // Mock stats data for now
 const MOCK_STATS = {
@@ -18,7 +15,7 @@ const MOCK_STATS = {
 };
 
 const Dashboard = () => {
-  const { user, initialized } = useAuth();
+  const { user } = useAuth();
   const [stats, setStats] = useState(MOCK_STATS);
   const [isLoadingStats, setIsLoadingStats] = useState(true);
   
@@ -26,58 +23,30 @@ const Dashboard = () => {
   const { 
     bookmarks: recentBookmarks, 
     isLoading: isLoadingBookmarks,
-    error: bookmarksError 
-  } = useBookmarks({}, { 
-    limit: 3,
-    autoFetch: initialized 
-  });
+    error: bookmarksError,
+    fetchBookmarks,
+    fetchBookmarkStats,
+    stats: bookmarkStats
+  } = useBookmarksStore();
 
-  // Separate effect for loading stats
   useEffect(() => {
-    const fetchStats = async () => {
-      // Don't fetch if auth isn't initialized yet
-      if (!initialized || !user) {
-        setIsLoadingStats(false);
-        return;
-      }
-      
-      console.log('Fetching bookmark stats');
-      setIsLoadingStats(true);
-      
-      try {
-        // Fetch statistics
-        const bookmarkStats = await getBookmarkStats(user.id);
-        console.log('Stats fetched:', bookmarkStats);
-        
-        // Update stats with real data, with null/undefined checks
-        setStats({
-          totalBookmarks: bookmarkStats?.totalCount || 0,
-          totalFolders: MOCK_STATS.totalFolders, // We'll need to fetch this separately
-          recentBookmarks: bookmarkStats?.recentCount || 0,
-          averagePerDay: (bookmarkStats?.recentCount || 0) / 7
-        });
-      } catch (error) {
-        console.error('Error fetching stats:', error);
-        toast.error('Failed to load dashboard statistics');
-      } finally {
-        setIsLoadingStats(false);
-      }
-    };
-    
-    fetchStats();
-    
-    // Set up refresh interval for stats
-    const refreshInterval = setInterval(() => {
-      if (user && initialized) {
-        console.log('Refreshing dashboard stats');
-        fetchStats();
-      }
-    }, 60000); // Refresh stats every minute
-    
-    return () => {
-      clearInterval(refreshInterval);
-    };
-  }, [user, initialized]);
+    if (user) {
+      fetchBookmarks(user.id, { limit: 3 });
+      fetchBookmarkStats(user.id);
+    }
+  }, [user, fetchBookmarks, fetchBookmarkStats]);
+
+  useEffect(() => {
+    if (bookmarkStats) {
+      setStats({
+        totalBookmarks: bookmarkStats.totalCount || 0,
+        totalFolders: MOCK_STATS.totalFolders, // We'll need to fetch this separately
+        recentBookmarks: bookmarkStats.recentCount || 0,
+        averagePerDay: (bookmarkStats.recentCount || 0) / 7
+      });
+      setIsLoadingStats(false);
+    }
+  }, [bookmarkStats]);
   
   // Combined loading state
   const isLoading = isLoadingBookmarks || isLoadingStats;

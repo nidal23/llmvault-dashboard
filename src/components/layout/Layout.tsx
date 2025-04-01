@@ -1,8 +1,9 @@
+//components/layout/Layout.tsx
 import { useState, useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import Header from "./Header";
 import Sidebar from "./Sidebar";
-import { useAuth } from "@/lib/context/AuthContext";
+import { useAuth } from "@/lib/hooks/useAuth";
 import { Loader2 } from "lucide-react";
 
 interface LayoutProps {
@@ -10,7 +11,7 @@ interface LayoutProps {
 }
 
 const Layout = ({ children }: LayoutProps) => {
-  const { initialized } = useAuth();
+  const { user } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [isMounted, setIsMounted] = useState(false);
   const location = useLocation();
@@ -45,7 +46,7 @@ const Layout = ({ children }: LayoutProps) => {
   }
 
   // Show a loading state while auth is initializing
-  if (!initialized) {
+  if (!user) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />

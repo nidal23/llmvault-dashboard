@@ -1,3 +1,4 @@
+//components/layout/Header.tsx
 import { useEffect, useState } from "react";
 import { useLocation, Link, useNavigate } from "react-router-dom";
 import { Menu, Search, User, Settings, Sun, Moon, LogOut } from "lucide-react";
@@ -10,9 +11,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
-import { useAuth } from "@/lib/context/AuthContext";
-import { useUserSettings } from "@/lib/hooks/useUserSettings";
+import { useAuth } from "@/lib/hooks/useAuth";
+import { useUserSettingsStore } from "@/lib/stores/useUserSettingsStore";
 import { toast } from "react-hot-toast";
+import { signOut } from "@/lib/api/auth";
 
 interface HeaderProps {
   sidebarOpen: boolean;
@@ -23,8 +25,8 @@ const Header = ({ sidebarOpen, setSidebarOpen }: HeaderProps) => {
   const [isScrolled, setIsScrolled] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, profile, signOut, initialized } = useAuth();
-  const { settings, updateTheme } = useUserSettings({ autoFetch: initialized });
+  const { user, profile } = useAuth();
+  const { settings, updateTheme, fetchSettings } = useUserSettingsStore();
 
   // Use user settings for theme preference
   const [isDarkMode, setIsDarkMode] = useState(false);
@@ -32,7 +34,21 @@ const Header = ({ sidebarOpen, setSidebarOpen }: HeaderProps) => {
   // Check if URL has /dashboard
   const isDashboard = location.pathname.includes("/dashboard");
   
-  // Set initial theme based on user settings when available
+  // // Set initial theme based on user settings when available
+  // useEffect(() => {
+  //   if (settings?.theme) {
+  //     const darkModeEnabled = settings.theme === 'dark' || 
+  //       (settings.theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+  //     setIsDarkMode(darkModeEnabled);
+  //   }
+  // }, [settings]);
+
+  useEffect(() => {
+    if (user) {
+      fetchSettings(user.id);
+    }
+  }, [user, fetchSettings]);
+
   useEffect(() => {
     if (settings?.theme) {
       const darkModeEnabled = settings.theme === 'dark' || 
@@ -61,13 +77,15 @@ const Header = ({ sidebarOpen, setSidebarOpen }: HeaderProps) => {
   }, [isDarkMode]);
   
   const toggleTheme = () => {
+    if (!user) return;
+    
     setIsDarkMode(!isDarkMode);
     
     // Update user settings if logged in
-    if (user && settings) {
+    if (settings) {
       const newTheme = isDarkMode ? 'light' : 'dark';
-      // The hook will handle the API call and optimistic update
-      updateTheme?.(newTheme).catch(error => {
+      // Pass user.id to the updateTheme function
+      updateTheme(user.id, newTheme).catch(error => {
         console.error('Failed to update theme preference:', error);
       });
     }
@@ -84,8 +102,7 @@ const Header = ({ sidebarOpen, setSidebarOpen }: HeaderProps) => {
     }
   };
 
-  // Get display name and email from user/profile
-  const displayName = profile?.full_name || profile?.username || user?.email?.split('@')[0] || 'User';
+  const displayName = profile?.fullName || profile?.username || user?.email?.split('@')[0] || 'User';
   const userEmail = user?.email || 'No email available';
 
   return (
@@ -93,6 +110,7 @@ const Header = ({ sidebarOpen, setSidebarOpen }: HeaderProps) => {
       className={`sticky top-0 z-30 flex h-16 items-center justify-between px-4 md:px-6 transition-all duration-300 
         ${isScrolled ? "glass-morphism shadow-sm" : "bg-background"}`}
     >
+      {/* Rest of your component remains the same */}
       <div className="flex items-center">
         <Button
           variant="ghost"
@@ -142,9 +160,9 @@ const Header = ({ sidebarOpen, setSidebarOpen }: HeaderProps) => {
           <DropdownMenuContent align="end" className="w-56 glass-card">
             <div className="flex items-center justify-start gap-2 p-2">
               <div className="rounded-full bg-primary/10 p-1">
-                {profile?.avatar_url ? (
+                {profile?.avatarUrl ? (
                   <img 
-                    src={profile.avatar_url} 
+                    src={profile.avatarUrl} 
                     alt={displayName}
                     className="h-8 w-8 rounded-full object-cover"
                   />

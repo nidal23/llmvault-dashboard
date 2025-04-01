@@ -1,6 +1,6 @@
 // src/lib/hooks/useUserSettings.ts
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../supabase/client';
 import { UserSettings } from '../supabase/database.types';
 import { toast } from 'react-hot-toast';
@@ -16,7 +16,7 @@ export const useUserSettings = (options: UseUserSettingsOptions = {}) => {
     autoFetch = true
   } = options;
   
-  const { user, initialized } = useAuth();
+  const { user } = useAuth();
   const [settings, setSettings] = useState<UserSettings | null>(initialData);
   const [isLoading, setIsLoading] = useState(autoFetch);
   const [isFetching, setIsFetching] = useState(false);
@@ -100,11 +100,11 @@ export const useUserSettings = (options: UseUserSettingsOptions = {}) => {
 
   // Load settings when auth is initialized
   useEffect(() => {
-    console.log(`[useUserSettings] Auth initialized: ${initialized}, autoFetch: ${autoFetch}`);
-    if (autoFetch && initialized) {
+    console.log(`[useUserSettings] Auth initialized: ${user}, autoFetch: ${autoFetch}`);
+    if (autoFetch && user) {
       fetchSettings();
     }
-  }, [autoFetch, initialized, fetchSettings]);
+  }, [autoFetch, user, fetchSettings]);
 
   // Update user settings with optimistic updates
   const updateSettings = useCallback(async (updates: Partial<UserSettings>) => {

@@ -1,3 +1,4 @@
+//components/folders/FolderTree.tsx
 import { useState } from "react";
 import { 
   FolderTree as FolderIcon, 
@@ -30,7 +31,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "react-hot-toast";
 import { FolderWithCount } from "@/lib/supabase/database.types";
-import { useFolders } from "@/lib/hooks/useFolders";
+import { useFoldersStore } from '@/lib/stores/useFoldersStore';
+import { useAuth } from "@/lib/hooks/useAuth";
 
 interface FolderTreeProps {
   folders: FolderWithCount[];
@@ -53,7 +55,9 @@ const FolderTree = ({ folders, selectedFolder, onFolderSelect }: FolderTreeProps
     // moveFolder,
     deleteFolder,
     isFetching
-  } = useFolders();
+  } = useFoldersStore();
+
+  const { user } = useAuth();
   
   const [expandedFolders, setExpandedFolders] = useState<string[]>([]);
   const [newFolderDialogOpen, setNewFolderDialogOpen] = useState(false);
@@ -85,16 +89,15 @@ const FolderTree = ({ folders, selectedFolder, onFolderSelect }: FolderTreeProps
     setIsSubmitting(true);
     
     try {
-      // Create a subfolder of the active folder
-      await createFolder(folderName, activeFolderId);
+      // Add user.id parameter
+      await createFolder(user.id, folderName, activeFolderId);
       
       // Dialog will close automatically due to optimistic update
       setNewFolderDialogOpen(false);
       setFolderName("");
     } catch (error) {
       console.log('error: ', error)
-
-      // Error is handled in the hook
+      // Error is handled in the store
     } finally {
       setIsSubmitting(false);
     }
@@ -114,18 +117,20 @@ const FolderTree = ({ folders, selectedFolder, onFolderSelect }: FolderTreeProps
     setIsSubmitting(true);
     
     try {
-      await renameFolder(activeFolderId, folderName);
+      // Add user.id parameter
+      await renameFolder(user.id, activeFolderId, folderName);
       
       // Dialog will close automatically due to optimistic update
       setEditFolderDialogOpen(false);
       setFolderName("");
     } catch (error) {
       console.log('error: ', error)
-      // Error is handled in the hook
+      // Error is handled in the store
     } finally {
       setIsSubmitting(false);
     }
   };
+
   
   const handleDeleteFolder = async () => {
     if (!activeFolderId) {
@@ -136,7 +141,7 @@ const FolderTree = ({ folders, selectedFolder, onFolderSelect }: FolderTreeProps
     setIsSubmitting(true);
     
     try {
-      await deleteFolder(activeFolderId);
+      await deleteFolder(user.id, activeFolderId);
       
       // If we're deleting the selected folder, clear selection
       if (selectedFolder === activeFolderId) {

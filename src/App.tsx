@@ -7,7 +7,7 @@ import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import AuthCallback from "./pages/auth/AuthCallback";
 import Dashboard from "./pages/Dashboard";
-import { AuthProvider } from "./lib/context/AuthContext";
+import { AuthProvider } from "./lib/hooks/useAuth";
 import { SubscriptionProvider } from "./lib/context/SubscriptionContext";
 import Settings from "./pages/Settings";
 import Bookmarks from "./pages/Bookmarks";

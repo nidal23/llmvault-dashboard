@@ -1,8 +1,6 @@
-//ASubscription context provider
-
-// src/lib/context/SubscriptionContext.tsx
+// src/lib/hooks/useSubscription.tsx
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { useAuth } from './AuthContext';
+import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../supabase/client';
 import { Subscription, UsageStats } from '../supabase/database.types';
 import { getSubscription, getUsageStats } from '../api/subscriptions';

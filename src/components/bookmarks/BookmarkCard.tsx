@@ -1,3 +1,4 @@
+//components/bookmarks/BookmarkCard.tsx
 import { useState } from "react";
 import { 
   Copy, 
@@ -30,7 +31,9 @@ import { Badge } from "@/components/ui/badge";
 import { format, formatDistanceToNow } from "date-fns";
 import { BookmarkWithFolder } from '../../lib/supabase/database.types';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { useBookmarks } from '@/lib/hooks/useBookmarks';
+import { useBookmarksStore } from '@/lib/stores/useBookmarksStore';
+import { useAuth } from '@/lib/hooks/useAuth';
+
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import {
@@ -40,7 +43,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useFolders } from "@/lib/hooks/useFolders";
+import { useFoldersStore } from '@/lib/stores/useFoldersStore';
 
 interface BookmarkCardProps {
   bookmark: BookmarkWithFolder;
@@ -62,9 +65,11 @@ const getPlatformColor = (platform: string) => {
 };
 
 const BookmarkCard = ({ bookmark }: BookmarkCardProps) => {
-  // Use our custom hooks
-  const { deleteBookmark, updateBookmark } = useBookmarks();
-  const { folders } = useFolders();
+
+  const { user } = useAuth();
+  // Use our zustand stores
+  const { deleteBookmark, updateBookmark } = useBookmarksStore();
+  const { folders } = useFoldersStore();
   
   // State for dialogs
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -89,6 +94,12 @@ const BookmarkCard = ({ bookmark }: BookmarkCardProps) => {
   };
   
   const handleDelete = async () => {
+
+    if (!user) {
+      toast.error('You must be logged in to delete bookmarks');
+      return;
+    }
+
     if (!bookmark?.id) {
       toast.error('Unable to delete bookmark');
       return;
@@ -97,7 +108,7 @@ const BookmarkCard = ({ bookmark }: BookmarkCardProps) => {
     setIsSubmitting(true);
 
     try {
-      await deleteBookmark(bookmark.id);
+      await deleteBookmark(user.id, bookmark.id);
       toast.success('Bookmark deleted successfully');
       setIsDeleteDialogOpen(false);
     } catch (error) {
@@ -109,6 +120,11 @@ const BookmarkCard = ({ bookmark }: BookmarkCardProps) => {
   };
   
   const handleUpdate = async () => {
+    if (!user) {
+      toast.error('You must be logged in to update bookmarks');
+      return;
+    }
+    
     if (!bookmark?.id) {
       toast.error('Unable to update bookmark');
       return;
@@ -117,7 +133,7 @@ const BookmarkCard = ({ bookmark }: BookmarkCardProps) => {
     setIsSubmitting(true);
 
     try {
-      await updateBookmark(bookmark.id, {
+      await updateBookmark(user.id, bookmark.id, {
         title: editTitle,
         url: editUrl,
         folder_id: editFolder,
@@ -126,11 +142,11 @@ const BookmarkCard = ({ bookmark }: BookmarkCardProps) => {
         notes: editNotes || null
       });
       
-      toast.success('Bookmark updated successfully');
+      // Success toast handled in store
       setIsEditDialogOpen(false);
     } catch (error) {
-      console.log('error: ', error)
-      // Error is handled in the hook
+      console.log('error: ', error);
+      // Error handled in store
     } finally {
       setIsSubmitting(false);
     }

@@ -1,3 +1,5 @@
+//components/bookmarks/BookmarkList.tsx
+
 import { useState } from "react";
 import { 
   Search, 
@@ -36,11 +38,10 @@ import { Label } from "@/components/ui/label";
 import BookmarkCard from "./BookmarkCard";
 import { Badge } from "@/components/ui/badge";
 import { BookmarkWithFolder } from '../../lib/supabase/database.types';
-import { useAuth } from '@/lib/context/AuthContext';
-import { useBookmarks } from '@/lib/hooks/useBookmarks';
-import { useFolders } from '@/lib/hooks/useFolders';
+import { useFoldersStore } from '@/lib/stores/useFoldersStore';
+import { useBookmarksStore } from '@/lib/stores/useBookmarksStore';
 import { toast } from "react-hot-toast";
-
+import { useAuth } from "@/lib/hooks/useAuth";
 
 interface BookmarkListProps {
   bookmarks: BookmarkWithFolder[];
@@ -49,9 +50,9 @@ interface BookmarkListProps {
 }
 
 const BookmarkList = ({ bookmarks, folderId, folderName }: BookmarkListProps) => {
-  const { user } = useAuth();
-  const { folders } = useFolders();
-  const { createBookmark } = useBookmarks();
+  const { folders } = useFoldersStore();
+  const { createBookmark, fetchBookmarks, updateFilters } = useBookmarksStore();
+  const { user } = useAuth()
   
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState("newest");
@@ -103,10 +104,33 @@ const BookmarkList = ({ bookmarks, folderId, folderName }: BookmarkListProps) =>
         return 0;
     }
   });
+
+  const handleSearch = (searchTerm: string) => {
+    setSearch(searchTerm);
+    
+    // For global search, update the store filters and fetch
+    if (searchTerm.length > 2) {
+      updateFilters({ search: searchTerm });
+      if (user) {
+        fetchBookmarks(user.id, { 
+          search: searchTerm,
+          folderId: folderId || undefined
+        });
+      }
+    }
+    
+    if (searchTerm.length === 0 && user) {
+      updateFilters({ search: undefined });
+      fetchBookmarks(user.id, { 
+        search: undefined,
+        folderId: folderId || undefined
+      });
+    }
+  };
   
   const handleCreateBookmark = async () => {
     if (!user) {
-      toast.error('You must be signed in to create bookmarks');
+      toast.error('You must be logged in to create bookmarks');
       return;
     }
     
@@ -118,7 +142,7 @@ const BookmarkList = ({ bookmarks, folderId, folderName }: BookmarkListProps) =>
     setIsSubmitting(true);
     
     try {
-      await createBookmark({
+      await createBookmark(user.id, {
         folder_id: newBookmarkFolder,
         url: newBookmarkUrl,
         title: newBookmarkTitle,
@@ -135,8 +159,8 @@ const BookmarkList = ({ bookmarks, folderId, folderName }: BookmarkListProps) =>
       setNewBookmarkNotes("");
       setIsNewBookmarkOpen(false);
     } catch (error) {
-      console.log('error: ', error)
-      // Error is handled in the hook
+      console.log('error: ', error);
+      // Error is handled in the store
     } finally {
       setIsSubmitting(false);
     }
@@ -161,7 +185,7 @@ const BookmarkList = ({ bookmarks, folderId, folderName }: BookmarkListProps) =>
             <Input
               placeholder="Search bookmarks..."
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => handleSearch(e.target.value)}
               className="pl-9 focus-visible:ring-1"
             />
           </div>

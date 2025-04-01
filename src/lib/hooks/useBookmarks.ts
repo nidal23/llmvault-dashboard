@@ -1,6 +1,6 @@
 // src/lib/hooks/useBookmarks.ts
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../hooks/useAuth';
 import { getBookmarks, createBookmark, updateBookmark, deleteBookmark } from '../api/bookmarks';
 import { Bookmark, BookmarkWithFolder } from '../supabase/database.types';
 import { toast } from 'react-hot-toast';
@@ -28,7 +28,7 @@ export const useBookmarks = (initialFilters: BookmarkFilters = {}, options: UseB
     autoFetch = true 
   } = options;
   
-  const { user, initialized } = useAuth();
+  const { user } = useAuth();
   const [bookmarks, setBookmarks] = useState<BookmarkWithFolder[]>(initialData);
   const [filters, setFilters] = useState<BookmarkFilters>(initialFilters);
   const [isLoading, setIsLoading] = useState(autoFetch);
@@ -117,17 +117,17 @@ export const useBookmarks = (initialFilters: BookmarkFilters = {}, options: UseB
 
   // Load bookmarks when filters change
   useEffect(() => {
-    if (autoFetch && initialized) {
+    if (autoFetch && user) {
       fetchBookmarks(true);
     }
-  }, [filters, initialized, autoFetch, fetchBookmarks]);
+  }, [filters, user, autoFetch, fetchBookmarks]);
 
   // Load more bookmarks when page changes
   useEffect(() => {
-    if (page > 1 && initialized) {
+    if (page > 1 && user) {
       fetchBookmarks(false);
     }
-  }, [page, initialized, fetchBookmarks]);
+  }, [page, user, fetchBookmarks]);
 
   // Create a new bookmark
   const handleCreateBookmark = useCallback(async (data: {
