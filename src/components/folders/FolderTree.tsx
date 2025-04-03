@@ -1,38 +1,16 @@
-import { useState, useEffect } from "react";
-import { 
-  FolderTree as FolderIcon, 
-  ChevronRight, 
-  ChevronDown, 
-  MoreVertical,
-  Edit,
-  Trash,
-  Plus,
-  Loader2,
-  ArrowLeft
-} from "lucide-react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { ArrowLeft, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { 
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { toast } from "react-hot-toast";
 import { FolderWithCount } from "@/lib/supabase/database.types";
 import { useFoldersStore } from '@/lib/stores/useFoldersStore';
 import { useAuth } from "@/lib/hooks/useAuth";
+
+// Import sub-components
+import FolderItem from './FolderItem';
+import { FolderDialogs } from './FolderDialogs';
 
 interface FolderTreeProps {
   folders: FolderWithCount[];
@@ -40,31 +18,41 @@ interface FolderTreeProps {
   onFolderSelect: (folderId: string) => void;
 }
 
-interface FolderFormProps {
-  title: string;
-  description: string;
-  onSubmit: () => void;
-  initialName?: string;
-}
-
 const FolderTree = ({ folders, selectedFolder, onFolderSelect }: FolderTreeProps) => {
-  // Use the custom folder hook
   const { 
     createFolder,
     renameFolder,
     deleteFolder,
+    moveFolder,
     isFetching
   } = useFoldersStore();
 
   const { user } = useAuth();
   
+  // State management
   const [expandedFolders, setExpandedFolders] = useState<string[]>([]);
   const [newFolderDialogOpen, setNewFolderDialogOpen] = useState(false);
   const [editFolderDialogOpen, setEditFolderDialogOpen] = useState(false);
   const [deleteFolderDialogOpen, setDeleteFolderDialogOpen] = useState(false);
   const [activeFolderId, setActiveFolderId] = useState<string | null>(null);
   const [folderName, setFolderName] = useState("");
+  const [parentFolderId, setParentFolderId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Drag and drop state
+  const [draggedFolderId, setDraggedFolderId] = useState<string | null>(null);
+  const [dropTargetId, setDropTargetId] = useState<string | null>(null);
+  const [isDraggingOver, setIsDraggingOver] = useState(false);
+  const rootDropRef = useRef<HTMLDivElement>(null);
+
+  // State updater functions to avoid re-renders
+  const updateFolderName = useCallback((name: string) => {
+    setFolderName(name);
+  }, []);
+  
+  const updateParentFolderId = useCallback((id: string | null) => {
+    setParentFolderId(id);
+  }, []);
   
   // Auto-expand the selected folder's parents when selected folder changes
   useEffect(() => {
@@ -99,20 +87,120 @@ const FolderTree = ({ folders, selectedFolder, onFolderSelect }: FolderTreeProps
     }
   }, [selectedFolder, folders]);
   
-  const toggleFolder = (folderId: string, e: React.MouseEvent) => {
+  /**
+   * Folder visibility and structure logic
+   */
+  
+  // Function to get the selected folder's ancestry chain (including self)
+  const getSelectedFolderWithAncestry = useCallback((): string[] => {
+    if (!selectedFolder) return [];
+    
+    const ancestry: string[] = [selectedFolder];
+    let currentFolder = folders.find(f => f.id === selectedFolder);
+    
+    while (currentFolder?.parent_id) {
+      ancestry.push(currentFolder.parent_id);
+      currentFolder = folders.find(f => f.id === currentFolder?.parent_id);
+    }
+    
+    return ancestry;
+  }, [folders, selectedFolder]);
+  
+  // Function to recursively get all descendants of a folder
+  const getAllDescendants = useCallback((folderId: string): string[] => {
+    const directChildren = folders
+      .filter(folder => folder.parent_id === folderId)
+      .map(folder => folder.id);
+      
+    if (directChildren.length === 0) return [];
+    
+    const allDescendants = [...directChildren];
+    
+    // Recursively get descendants of each child
+    directChildren.forEach(childId => {
+      const childDescendants = getAllDescendants(childId);
+      allDescendants.push(...childDescendants);
+    });
+    
+    return allDescendants;
+  }, [folders]);
+  
+  // Get all folders visible in the current tree view
+  const getVisibleFolders = useCallback((): FolderWithCount[] => {
+    if (!selectedFolder) return folders;
+    
+    const ancestry = getSelectedFolderWithAncestry();
+    const descendants = getAllDescendants(selectedFolder);
+    const relevantFolderIds = [...ancestry, ...descendants];
+    
+    return folders.filter(folder => relevantFolderIds.includes(folder.id));
+  }, [folders, selectedFolder, getSelectedFolderWithAncestry, getAllDescendants]);
+  
+  // Determine if a folder should be shown in the tree when a specific folder is selected
+  const shouldShowFolderInSelectedView = useCallback((folderId: string): boolean => {
+    if (!selectedFolder) return true; // Show all in "All Bookmarks" view
+    
+    const ancestry = getSelectedFolderWithAncestry();
+    
+    // If this folder is the selected folder or in its ancestry chain, show it
+    if (ancestry.includes(folderId)) return true;
+    
+    // If this folder is a descendant of the selected folder, show it
+    const allDescendants = getAllDescendants(selectedFolder);
+    if (allDescendants.includes(folderId)) return true;
+    
+    // Show siblings of the selected folder
+    const selectedFolderData = folders.find(f => f.id === selectedFolder);
+    if (selectedFolderData && selectedFolderData.parent_id) {
+      const folderData = folders.find(f => f.id === folderId);
+      // If the folder has the same parent as the selected folder, it's a sibling
+      if (folderData && folderData.parent_id === selectedFolderData.parent_id) {
+        return true;
+      }
+    }
+    
+    return false;
+  }, [selectedFolder, getSelectedFolderWithAncestry, getAllDescendants, folders]);
+  
+  // Determine if a folder can have visible children
+  const canHaveVisibleChildren = useCallback((folderId: string): boolean => {
+    if (!selectedFolder) return true; // In "All Bookmarks" view, all folders can show children
+    
+    // In selected folder view, only the selected folder, its ancestors, and siblings can show their children
+    const ancestry = getSelectedFolderWithAncestry();
+    if (folderId === selectedFolder || ancestry.includes(folderId)) return true;
+    
+    // Allow siblings to show their children
+    const selectedFolderData = folders.find(f => f.id === selectedFolder);
+    if (selectedFolderData && selectedFolderData.parent_id) {
+      const folderData = folders.find(f => f.id === folderId);
+      // If the folder has the same parent as the selected folder (it's a sibling), allow it to show children
+      if (folderData && folderData.parent_id === selectedFolderData.parent_id) {
+        return true;
+      }
+    }
+    
+    return false;
+  }, [selectedFolder, getSelectedFolderWithAncestry, folders]);
+  
+  /**
+   * Event handlers
+   */
+  
+  const toggleFolder = useCallback((folderId: string, e: React.MouseEvent) => {
     e.stopPropagation();
     setExpandedFolders(prev => 
       prev.includes(folderId) 
         ? prev.filter(id => id !== folderId)
         : [...prev, folderId]
     );
-  };
+  }, []);
   
-  const handleFolderSelect = (folderId: string) => {
+  const handleFolderSelect = useCallback((folderId: string) => {
     onFolderSelect(folderId);
-  };
+  }, [onFolderSelect]);
   
-  const handleCreateFolder = async () => {
+  const handleCreateFolder = useCallback(async () => {
     if (!folderName.trim()) {
       toast.error('Folder name cannot be empty');
       return;
@@ -121,18 +209,20 @@ const FolderTree = ({ folders, selectedFolder, onFolderSelect }: FolderTreeProps
     setIsSubmitting(true);
     
     try {
-      await createFolder(user.id, folderName, activeFolderId);
+      await createFolder(user.id, folderName, parentFolderId);
       setNewFolderDialogOpen(false);
+      // Reset form 
       setFolderName("");
+      setParentFolderId(null);
     } catch (error) {
       console.log('error: ', error);
       // Error is handled in the store
     } finally {
       setIsSubmitting(false);
     }
-  };
+  }, [createFolder, folderName, parentFolderId, user]);
   
-  const handleEditFolder = async () => {
+  const handleEditFolder = useCallback(async () => {
     if (!activeFolderId) {
       toast.error('Unable to update folder');
       return;
@@ -155,9 +245,9 @@ const FolderTree = ({ folders, selectedFolder, onFolderSelect }: FolderTreeProps
     } finally {
       setIsSubmitting(false);
     }
-  };
+  }, [activeFolderId, folderName, renameFolder, user]);
   
-  const handleDeleteFolder = async () => {
+  const handleDeleteFolder = useCallback(async () => {
     if (!activeFolderId) {
       toast.error('Unable to delete folder');
       return;
@@ -180,83 +270,116 @@ const FolderTree = ({ folders, selectedFolder, onFolderSelect }: FolderTreeProps
     } finally {
       setIsSubmitting(false);
     }
-  };
+  }, [activeFolderId, deleteFolder, onFolderSelect, selectedFolder, user]);
+
+  // Handle drag and drop folder movement
+  const handleMoveFolder = useCallback(async (folderId: string, newParentId: string | null) => {
+    try {
+      await moveFolder(user.id, folderId, newParentId);
+    } catch (error) {
+      console.log('error: ', error);
+      // Error is handled in the store
+    }
+  }, [moveFolder, user.id]);
   
-  const openEditDialog = (folder: FolderWithCount) => {
+  const closeNewFolderDialog = useCallback(() => {
+    setNewFolderDialogOpen(false);
+    setFolderName("");
+    setParentFolderId(null);
+  }, []);
+  
+  const closeEditFolderDialog = useCallback(() => {
+    setEditFolderDialogOpen(false);
+    setFolderName("");
+  }, []);
+  
+  const openEditDialog = useCallback((folder: FolderWithCount) => {
     setActiveFolderId(folder.id);
+    // Important: Set the folder name AFTER setting the activeFolderId to avoid render issues
     setFolderName(folder.name);
     setEditFolderDialogOpen(true);
-  };
+  }, []);
   
-  const openNewFolderDialog = (parentId: string) => {
-    setActiveFolderId(parentId);
+  const openNewFolderDialog = useCallback((parentId: string | null = null) => {
+    // Clear existing values first
     setFolderName("");
+    setParentFolderId(parentId);
+    // Then open the dialog
     setNewFolderDialogOpen(true);
-  };
+  }, []);
   
-  const openDeleteDialog = (folderId: string) => {
+  const openDeleteDialog = useCallback((folderId: string) => {
     setActiveFolderId(folderId);
     setDeleteFolderDialogOpen(true);
-  };
-  
-  // Function to get the selected folder's ancestry chain (including self)
-  const getSelectedFolderWithAncestry = (): string[] => {
-    if (!selectedFolder) return [];
+  }, []);
+
+  // Drag and drop handlers
+  const handleDragStart = useCallback((e: React.DragEvent, folderId: string) => {
+    e.stopPropagation();
+    setDraggedFolderId(folderId);
+    e.dataTransfer.setData('text/plain', folderId);
+    e.dataTransfer.effectAllowed = 'move';
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent, folderId: string | null) => {
+    e.preventDefault();
+    e.stopPropagation();
     
-    const ancestry: string[] = [selectedFolder];
-    let currentFolder = folders.find(f => f.id === selectedFolder);
+    if (!draggedFolderId || draggedFolderId === folderId) return;
     
-    while (currentFolder?.parent_id) {
-      ancestry.push(currentFolder.parent_id);
-      currentFolder = folders.find(f => f.id === currentFolder?.parent_id);
+    // Prevent dropping on itself
+    if (draggedFolderId === folderId) {
+      e.dataTransfer.dropEffect = 'none';
+      return;
     }
     
-    return ancestry;
-  };
+    // Prevent dropping on its own descendants
+    if (folderId && getAllDescendants(draggedFolderId).includes(folderId)) {
+      e.dataTransfer.dropEffect = 'none';
+      return;
+    }
+    
+    e.dataTransfer.dropEffect = 'move';
+    setDropTargetId(folderId);
+    setIsDraggingOver(true);
+  }, [draggedFolderId, getAllDescendants]);
+
+  const handleDragEnd = useCallback(() => {
+    setDraggedFolderId(null);
+    setDropTargetId(null);
+    setIsDraggingOver(false);
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent, targetFolderId: string | null) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    setIsDraggingOver(false);
+    
+    const folderId = e.dataTransfer.getData('text/plain');
+    if (!folderId) return;
+    
+    // Prevent dropping on itself
+    if (folderId === targetFolderId) return;
+    
+    // Prevent dropping into its own descendants
+    if (targetFolderId && getAllDescendants(folderId).includes(targetFolderId)) {
+      toast.error('Cannot move a folder into its own subfolder');
+      return;
+    }
+    
+    handleMoveFolder(folderId, targetFolderId);
+    
+    setDraggedFolderId(null);
+    setDropTargetId(null);
+  }, [getAllDescendants, handleMoveFolder]);
   
-  // Function to recursively get all descendants of a folder
-  const getAllDescendants = (folderId: string): string[] => {
-    const directChildren = folders
-      .filter(folder => folder.parent_id === folderId)
-      .map(folder => folder.id);
-      
-    if (directChildren.length === 0) return [];
-    
-    const allDescendants = [...directChildren];
-    
-    // Recursively get descendants of each child
-    directChildren.forEach(childId => {
-      const childDescendants = getAllDescendants(childId);
-      allDescendants.push(...childDescendants);
-    });
-    
-    return allDescendants;
-  };
+  /**
+   * Rendering logic
+   */
   
-  // Determine if a folder should be shown in the tree when a specific folder is selected
-  const shouldShowFolderInSelectedView = (folderId: string): boolean => {
-    if (!selectedFolder) return true; // Show all in "All Bookmarks" view
-    
-    const ancestry = getSelectedFolderWithAncestry();
-    
-    // If this folder is the selected folder or in its ancestry chain, show it
-    if (ancestry.includes(folderId)) return true;
-    
-    // If this folder is a descendant of the selected folder, show it
-    const allDescendants = getAllDescendants(selectedFolder);
-    return allDescendants.includes(folderId);
-  };
-  
-  // Determine if a folder can have visible children
-  const canHaveVisibleChildren = (folderId: string): boolean => {
-    if (!selectedFolder) return true; // In "All Bookmarks" view, all folders can show children
-    
-    // In selected folder view, only the selected folder and its ancestors can show their children
-    const ancestry = getSelectedFolderWithAncestry();
-    return folderId === selectedFolder || ancestry.includes(folderId);
-  };
-  
-  const renderFolderItems = (parentId: string | null, depth = 0) => {
+  // Recursive function to render folder items
+  const renderFolderItems = useCallback((parentId: string | null, depth = 0) => {
     // Get folders that should be displayed at this level
     let foldersToRender = folders.filter(folder => folder.parent_id === parentId);
     
@@ -272,162 +395,54 @@ const FolderTree = ({ folders, selectedFolder, onFolderSelect }: FolderTreeProps
       const canShowChildren = canHaveVisibleChildren(folder.id);
       const isExpanded = expandedFolders.includes(folder.id);
       const isSelected = selectedFolder === folder.id;
+      const isBeingDragged = draggedFolderId === folder.id;
+      const isDropTarget = dropTargetId === folder.id;
       
       return (
-        <div key={folder.id} className="group">
-          <div 
-            className={cn(
-              "flex items-center justify-between py-1.5 px-2 rounded-md cursor-pointer text-sm group/item",
-              isSelected ? "bg-accent text-accent-foreground" : "hover:bg-accent/50",
-              depth > 0 && "ml-4"
-            )}
-            onClick={() => handleFolderSelect(folder.id)}
-          >
-            <div className="flex items-center min-w-0">
-              {hasChildren && canShowChildren && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-5 w-5 mr-1 p-0"
-                  onClick={(e) => toggleFolder(folder.id, e)}
-                >
-                  {isExpanded ? (
-                    <ChevronDown className="h-4 w-4" />
-                  ) : (
-                    <ChevronRight className="h-4 w-4" />
-                  )}
-                </Button>
-              )}
-              {(!hasChildren || !canShowChildren) && <div className="w-5 mr-1" />}
-              
-              <FolderIcon className="h-4 w-4 mr-2 flex-shrink-0" />
-              <span className="truncate">{folder.name}</span>
-              {folder.bookmarkCount !== undefined && folder.bookmarkCount > 0 && (
-                <span className="ml-1 text-xs text-muted-foreground">
-                  ({folder.bookmarkCount})
-                </span>
-              )}
-            </div>
-            
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7 opacity-0 group-hover/item:opacity-100 transition-opacity"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setActiveFolderId(folder.id);
-                  }}
-                >
-                  <MoreVertical className="h-4 w-4" />
-                  <span className="sr-only">Actions</span>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="glass-card w-40">
-                <DropdownMenuItem
-                  onClick={() => {
-                    openEditDialog(folder);
-                  }}
-                >
-                  <Edit className="mr-2 h-4 w-4" />
-                  <span>Rename</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => {
-                    openNewFolderDialog(folder.id);
-                  }}
-                >
-                  <Plus className="mr-2 h-4 w-4" />
-                  <span>New Subfolder</span>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onClick={() => {
-                    openDeleteDialog(folder.id);
-                  }}
-                  className="text-destructive"
-                >
-                  <Trash className="mr-2 h-4 w-4" />
-                  <span>Delete</span>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-          
-          {hasChildren && canShowChildren && isExpanded && (
-            <div className="pl-2 border-l border-border ml-6 mt-1 transition-all">
-              {renderFolderItems(folder.id, depth + 1)}
-            </div>
-          )}
-        </div>
+        <FolderItem
+          key={folder.id}
+          folder={folder}
+          depth={depth}
+          hasChildren={hasChildren}
+          canShowChildren={canShowChildren}
+          isExpanded={isExpanded}
+          isSelected={isSelected}
+          isBeingDragged={isBeingDragged}
+          isDropTarget={isDropTarget}
+          onToggleExpand={toggleFolder}
+          onFolderSelect={handleFolderSelect}
+          onEditFolder={openEditDialog}
+          onNewSubfolder={openNewFolderDialog}
+          onDeleteFolder={openDeleteDialog}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+          onDragOver={handleDragOver}
+          onDrop={handleDrop}
+          renderChildren={renderFolderItems}
+        />
       );
     });
-  };
+  }, [
+    folders, 
+    selectedFolder, 
+    shouldShowFolderInSelectedView, 
+    canHaveVisibleChildren, 
+    expandedFolders, 
+    draggedFolderId,
+    dropTargetId,
+    handleFolderSelect, 
+    toggleFolder, 
+    openEditDialog, 
+    openNewFolderDialog, 
+    openDeleteDialog,
+    handleDragStart,
+    handleDragEnd,
+    handleDragOver,
+    handleDrop
+  ]);
   
-  // Folder dialog forms
-  const FolderForm = ({ title, description, onSubmit, initialName = "" }: FolderFormProps) => {
-    // Set initial folder name when dialog opens
-    if (initialName && folderName !== initialName) {
-      setFolderName(initialName);
-    }
-    
-    return (
-      <DialogContent className="glass-card">
-        <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
-          <DialogDescription>{description}</DialogDescription>
-        </DialogHeader>
-        <form onSubmit={(e) => { e.preventDefault(); onSubmit(); }}>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="folder-name" className="text-right">
-                Name
-              </Label>
-              <Input
-                id="folder-name"
-                value={folderName}
-                onChange={(e) => setFolderName(e.target.value)}
-                placeholder="Enter folder name"
-                className="col-span-3"
-                autoFocus
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button type="submit" disabled={isSubmitting || isFetching}>
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Saving...
-                </>
-              ) : 'Save'}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    );
-  };
-  
-  // Create a "New Root Folder" button at the bottom of the tree
-  const AddRootFolderButton = () => (
-    <Button 
-      variant="ghost" 
-      size="sm" 
-      className="mt-2 w-full text-muted-foreground"
-      onClick={() => {
-        setActiveFolderId(null);
-        setFolderName("");
-        setNewFolderDialogOpen(true);
-      }}
-    >
-      <Plus className="mr-2 h-4 w-4" />
-      New Root Folder
-    </Button>
-  );
-  
-  // Render back to all bookmarks button
-  const BackToAllButton = () => (
+  // Back to all bookmarks button component
+  const BackToAllButton = useCallback(() => (
     <Button
       variant="ghost"
       size="sm"
@@ -437,71 +452,101 @@ const FolderTree = ({ folders, selectedFolder, onFolderSelect }: FolderTreeProps
       <ArrowLeft className="mr-2 h-4 w-4" />
       All Bookmarks
     </Button>
-  );
+  ), [onFolderSelect]);
+  
+  // Get all folders that should be visible in the current folder tree view
+  const visibleFolders = getVisibleFolders();
   
   return (
     <div className="mt-2 space-y-1 animate-fade-in">
       {/* Show back button when a folder is selected */}
       {selectedFolder && <BackToAllButton />}
       
+      {/* Root drop area for making folders root-level */}
+      <div 
+        ref={rootDropRef}
+        className={cn(
+          "p-2 rounded-md border border-dashed transition-colors mb-2",
+          (isDraggingOver && dropTargetId === null) ? "border-primary bg-accent/30" : "border-transparent"
+        )}
+        onDragOver={(e) => {
+          e.preventDefault();
+          if (draggedFolderId) {
+            setDropTargetId(null);
+            setIsDraggingOver(true);
+          }
+        }}
+        onDragLeave={() => {
+          if (dropTargetId === null) {
+            setIsDraggingOver(false);
+          }
+        }}
+        onDrop={(e) => handleDrop(e, null)}
+      >
+        {(isDraggingOver && dropTargetId === null) && (
+          <div className="text-center text-sm text-muted-foreground">
+            Drop here to make a root folder
+          </div>
+        )}
+      </div>
+      
       {/* Render folders based on the current view */}
       {renderFolderItems(null, 0)}
       
-      {folders.length > 0 && <AddRootFolderButton />}
+      {folders.length > 0 && (
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          className="mt-2 w-full text-muted-foreground"
+          onClick={() => openNewFolderDialog(null)}
+        >
+          <Plus className="mr-2 h-4 w-4" />
+          New Root Folder
+        </Button>
+      )}
       
       {/* New Folder Dialog */}
       <Dialog open={newFolderDialogOpen} onOpenChange={setNewFolderDialogOpen}>
-        <FolderForm
-          title="New Folder"
-          description="Create a new folder to organize your bookmarks."
-          onSubmit={handleCreateFolder}
-        />
+        <DialogContent className="glass-card">
+          <FolderDialogs.NewFolderDialogContent
+            folderName={folderName}
+            setFolderName={updateFolderName}
+            parentFolderId={parentFolderId}
+            setParentFolderId={updateParentFolderId}
+            handleCreateFolder={handleCreateFolder}
+            onClose={closeNewFolderDialog}
+            isSubmitting={isSubmitting}
+            isFetching={isFetching}
+            visibleFolders={visibleFolders}
+          />
+        </DialogContent>
       </Dialog>
       
       {/* Edit Folder Dialog */}
       <Dialog open={editFolderDialogOpen} onOpenChange={setEditFolderDialogOpen}>
-        <FolderForm
-          title="Edit Folder"
-          description="Update the folder name."
-          initialName={folders.find(f => f.id === activeFolderId)?.name || ""}
-          onSubmit={handleEditFolder}
-        />
+        <DialogContent className="glass-card">
+          <FolderDialogs.EditFolderDialogContent
+            folderName={folderName}
+            setFolderName={updateFolderName}
+            handleEditFolder={handleEditFolder}
+            onClose={closeEditFolderDialog}
+            isSubmitting={isSubmitting}
+            isFetching={isFetching}
+          />
+        </DialogContent>
       </Dialog>
       
       {/* Delete Folder Dialog */}
-      <Dialog open={deleteFolderDialogOpen} onOpenChange={setDeleteFolderDialogOpen}>
-        <DialogContent className="glass-card">
-          <DialogHeader>
-            <DialogTitle>Delete Folder</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to delete this folder? This action cannot be undone.
-              
-              {folders.find(f => f.id === activeFolderId)?.bookmarkCount ? (
-                <div className="mt-2 text-destructive">
-                  Warning: This folder contains bookmarks that will also be deleted.
-                </div>
-              ) : null}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteFolderDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button 
-              variant="destructive" 
-              onClick={handleDeleteFolder}
-              disabled={isSubmitting || isFetching}
-            >
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Deleting...
-                </>
-              ) : 'Delete'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <FolderDialogs.DeleteFolderDialog
+        open={deleteFolderDialogOpen}
+        onOpenChange={setDeleteFolderDialogOpen}
+        folderName={folders.find(f => f.id === activeFolderId)?.name || "this folder"}
+        hasBookmarks={!!folders.find(f => f.id === activeFolderId)?.bookmarkCount}
+        onDelete={handleDeleteFolder}
+        onCancel={() => setDeleteFolderDialogOpen(false)}
+        isSubmitting={isSubmitting}
+        isFetching={isFetching}
+      />
     </div>
   );
 };
