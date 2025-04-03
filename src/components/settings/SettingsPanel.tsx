@@ -32,12 +32,13 @@ import { Badge } from "@/components/ui/badge";
 import { useUserSettingsStore } from "@/lib/stores/useUserSettingsStore";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { Json } from "@/lib/supabase/database.types";
-import { useSubscription } from "@/lib/context/SubscriptionContext";
 import { signOut } from "@/lib/api/auth";
+import { useSubscriptionStore } from "@/lib/stores/useSubscriptionStore";
+import { Shield, Crown, Check } from "lucide-react";
 
 const SettingsPanel = () => {
   const { user, profile } = useAuth();
-  const { subscription, tier, isActive } = useSubscription();
+  const { subscription ,tier, isActive } = useSubscriptionStore();
   const { 
     settings, 
     isLoading,
@@ -211,8 +212,6 @@ const SettingsPanel = () => {
               </div>
             </CardContent>
           </Card>
-          
-          {/* Subscription Status Card */}
           <Card className="glass-card mt-6">
             <CardHeader>
               <CardTitle>Subscription</CardTitle>
@@ -223,8 +222,17 @@ const SettingsPanel = () => {
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-lg font-medium">
-                    {tier === 'premium' ? 'Premium Plan' : 'Free Plan'}
+                  <p className="text-lg font-medium flex items-center gap-2">
+                    {tier === 'premium' ? (
+                      <>
+                        <Shield className="h-5 w-5 text-primary" />
+                        Premium Plan
+                      </>
+                    ) : (
+                      <>
+                        Free Plan
+                      </>
+                    )}
                   </p>
                   <p className="text-sm text-muted-foreground">
                     {tier === 'premium' 
@@ -260,6 +268,28 @@ const SettingsPanel = () => {
                   )}
                 </div>
               )}
+              
+              {tier === 'free' && (
+                <div className="space-y-4 pt-4 border-t">
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium">Premium benefits:</p>
+                    <ul className="space-y-1.5">
+                      {[
+                        'Unlimited folders & organization',
+                        'Store up to 500 bookmarks',
+                        'Advanced search capabilities',
+                        'Custom labeling system',
+                        'Priority support'
+                      ].map((benefit, index) => (
+                        <li key={index} className="flex items-start gap-2 text-sm">
+                          <Check className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+                          <span>{benefit}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              )}
             </CardContent>
             <CardFooter>
               <Button 
@@ -273,10 +303,17 @@ const SettingsPanel = () => {
                   );
                 }}
               >
-                {tier === 'premium' ? 'Cancel Subscription' : 'Upgrade to Premium'}
+                {tier === 'premium' ? 'Cancel Subscription' : (
+                  <span className="flex items-center gap-1.5">
+                    <Crown className="h-4 w-4" />
+                    Upgrade to Premium for $3.99/month
+                  </span>
+                )}
               </Button>
             </CardFooter>
           </Card>
+
+          
         </TabsContent>
         
         <TabsContent value="appearance" className="mt-6">

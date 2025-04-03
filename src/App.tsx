@@ -8,7 +8,6 @@ import NotFound from "./pages/NotFound";
 import AuthCallback from "./pages/auth/AuthCallback";
 import Dashboard from "./pages/Dashboard";
 import { AuthProvider } from "./lib/hooks/useAuth";
-import { SubscriptionProvider } from "./lib/context/SubscriptionContext";
 import Settings from "./pages/Settings";
 import Bookmarks from "./pages/Bookmarks";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
@@ -19,7 +18,6 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <SubscriptionProvider>
           <TooltipProvider>
             <Sonner />
               <BrowserRouter>
@@ -45,7 +43,6 @@ function App() {
                 </Routes>
               </BrowserRouter>
           </TooltipProvider>
-        </SubscriptionProvider>
       </AuthProvider>
     </QueryClientProvider>
   )

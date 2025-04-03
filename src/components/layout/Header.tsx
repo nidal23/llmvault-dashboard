@@ -1,7 +1,7 @@
 //components/layout/Header.tsx
 import { useEffect, useState } from "react";
 import { useLocation, Link, useNavigate } from "react-router-dom";
-import { Menu, Search, User, Settings, Sun, Moon, LogOut } from "lucide-react";
+import { Menu, Search, User, Settings, Sun, Moon, LogOut, Crown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -15,6 +15,7 @@ import { useAuth } from "@/lib/hooks/useAuth";
 import { useUserSettingsStore } from "@/lib/stores/useUserSettingsStore";
 import { toast } from "react-hot-toast";
 import { signOut } from "@/lib/api/auth";
+import { useSubscriptionStore } from "@/lib/stores/useSubscriptionStore";
 
 interface HeaderProps {
   sidebarOpen: boolean;
@@ -27,6 +28,7 @@ const Header = ({ sidebarOpen, setSidebarOpen }: HeaderProps) => {
   const location = useLocation();
   const { user, profile } = useAuth();
   const { settings, updateTheme, fetchSettings } = useUserSettingsStore();
+  const { tier } = useSubscriptionStore();
 
   // Use user settings for theme preference
   const [isDarkMode, setIsDarkMode] = useState(false);
@@ -34,14 +36,6 @@ const Header = ({ sidebarOpen, setSidebarOpen }: HeaderProps) => {
   // Check if URL has /dashboard
   const isDashboard = location.pathname.includes("/dashboard");
   
-  // // Set initial theme based on user settings when available
-  // useEffect(() => {
-  //   if (settings?.theme) {
-  //     const darkModeEnabled = settings.theme === 'dark' || 
-  //       (settings.theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
-  //     setIsDarkMode(darkModeEnabled);
-  //   }
-  // }, [settings]);
 
   useEffect(() => {
     if (user) {
@@ -122,9 +116,11 @@ const Header = ({ sidebarOpen, setSidebarOpen }: HeaderProps) => {
           <span className="sr-only">Toggle menu</span>
         </Button>
         <Link to="/" className="flex items-center gap-2">
-          <span className="font-semibold text-xl">ChatBook</span>
+          <span className="font-semibold text-xl">LLM-Vault</span>
         </Link>
       </div>
+
+      
       
       {isDashboard && (
         <div className="hidden md:flex max-w-md w-full mx-4">
@@ -140,6 +136,17 @@ const Header = ({ sidebarOpen, setSidebarOpen }: HeaderProps) => {
       )}
       
       <div className="flex items-center gap-2">
+        {tier === 'free' && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="hidden md:flex items-center gap-1.5 text-primary border-primary/20 hover:bg-primary/10"
+            onClick={() => navigate('/settings?tab=subscription')}
+          >
+            <Crown className="h-3.5 w-3.5" />
+            <span>Upgrade</span>
+          </Button>
+        )}
         <Button
           variant="ghost"
           size="icon"
