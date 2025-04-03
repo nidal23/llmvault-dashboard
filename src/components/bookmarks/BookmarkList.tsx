@@ -1,6 +1,4 @@
-//components/bookmarks/BookmarkList.tsx
-
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { 
   Search, 
   SlidersHorizontal, 
@@ -47,12 +45,13 @@ interface BookmarkListProps {
   bookmarks: BookmarkWithFolder[];
   folderId?: string;
   folderName?: string;
+  onBookmarksChange?: () => void; // Callback for when bookmarks are modified
 }
 
-const BookmarkList = ({ bookmarks, folderId, folderName }: BookmarkListProps) => {
+const BookmarkList = ({ bookmarks, folderId, folderName, onBookmarksChange }: BookmarkListProps) => {
   const { folders } = useFoldersStore();
   const { createBookmark, fetchBookmarks, updateFilters } = useBookmarksStore();
-  const { user } = useAuth()
+  const { user } = useAuth();
   
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState("newest");
@@ -64,10 +63,21 @@ const BookmarkList = ({ bookmarks, folderId, folderName }: BookmarkListProps) =>
   const [newBookmarkUrl, setNewBookmarkUrl] = useState("");
   const [newBookmarkTitle, setNewBookmarkTitle] = useState("");
   const [newBookmarkPlatform, setNewBookmarkPlatform] = useState("");
-  const [newBookmarkLabel, setNewBookmarkLabel] = useState<string | null>(null);
+  const [newBookmarkLabel, setNewBookmarkLabel] = useState<string>("");
   const [newBookmarkNotes, setNewBookmarkNotes] = useState("");
-  const [newBookmarkFolder, setNewBookmarkFolder] = useState(folderId || "");
+  const [newBookmarkFolder, setNewBookmarkFolder] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Initialize folder selection when folders are available
+  useEffect(() => {
+    if (folders && folders.length > 0) {
+      if (folderId && folders.some(f => f.id === folderId)) {
+        setNewBookmarkFolder(folderId);
+      } else {
+        setNewBookmarkFolder(folders[0].id);
+      }
+    }
+  }, [folders, folderId]);
   
   // Get unique platforms and labels for filters
   const platforms = ["all", ...new Set(bookmarks.map(b => b.platform).filter(Boolean))];
@@ -147,7 +157,7 @@ const BookmarkList = ({ bookmarks, folderId, folderName }: BookmarkListProps) =>
         url: newBookmarkUrl,
         title: newBookmarkTitle,
         platform: newBookmarkPlatform || null,
-        label: newBookmarkLabel,
+        label: newBookmarkLabel || null,
         notes: newBookmarkNotes || null
       });
       
@@ -155,14 +165,36 @@ const BookmarkList = ({ bookmarks, folderId, folderName }: BookmarkListProps) =>
       setNewBookmarkUrl("");
       setNewBookmarkTitle("");
       setNewBookmarkPlatform("");
-      setNewBookmarkLabel(null);
+      setNewBookmarkLabel("");
       setNewBookmarkNotes("");
       setIsNewBookmarkOpen(false);
+      
+      // Notify parent component about the change
+      if (onBookmarksChange) {
+        onBookmarksChange();
+      }
     } catch (error) {
       console.log('error: ', error);
       // Error is handled in the store
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  // Prepare to open the dialog
+  const openNewBookmarkDialog = () => {
+    if (folders && folders.length > 0) {
+      // Set a default folder if one isn't already set
+      if (!newBookmarkFolder) {
+        if (folderId && folders.some(f => f.id === folderId)) {
+          setNewBookmarkFolder(folderId);
+        } else {
+          setNewBookmarkFolder(folders[0].id);
+        }
+      }
+      setIsNewBookmarkOpen(true);
+    } else {
+      toast.error('You need to create a folder first');
     }
   };
   
@@ -173,7 +205,10 @@ const BookmarkList = ({ bookmarks, folderId, folderName }: BookmarkListProps) =>
           <h2 className="text-2xl font-semibold">
             {folderName || "All Bookmarks"}
           </h2>
-          <Button className="apple-button" onClick={() => setIsNewBookmarkOpen(true)}>
+          <Button 
+            className="apple-button" 
+            onClick={openNewBookmarkDialog}
+          >
             <Plus className="mr-2 h-4 w-4" />
             Add Bookmark
           </Button>
@@ -270,7 +305,7 @@ const BookmarkList = ({ bookmarks, folderId, folderName }: BookmarkListProps) =>
           <Button 
             className="mt-4" 
             variant="outline" 
-            onClick={() => setIsNewBookmarkOpen(true)}
+            onClick={openNewBookmarkDialog}
           >
             <Plus className="mr-2 h-4 w-4" />
             Add Bookmark
@@ -280,7 +315,10 @@ const BookmarkList = ({ bookmarks, folderId, folderName }: BookmarkListProps) =>
         <div className="mt-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {sortedBookmarks.map((bookmark) => (
             <div key={bookmark.id} className="animate-scale-in">
-              <BookmarkCard bookmark={bookmark} />
+              <BookmarkCard 
+                bookmark={bookmark} 
+                onBookmarkChange={onBookmarksChange} // Pass down the change handler
+              />
             </div>
           ))}
         </div>
@@ -335,11 +373,15 @@ const BookmarkList = ({ bookmarks, folderId, folderName }: BookmarkListProps) =>
                   <SelectValue placeholder="Select a folder" />
                 </SelectTrigger>
                 <SelectContent>
-                  {folders.map(folder => (
-                    <SelectItem key={folder.id} value={folder.id}>
-                      {folder.name}
-                    </SelectItem>
-                  ))}
+                  {folders && folders.length > 0 ? (
+                    folders.map(folder => (
+                      <SelectItem key={folder.id} value={folder.id}>
+                        {folder.name}
+                      </SelectItem>
+                    ))
+                  ) : (
+                    <SelectItem value="no-folder">No folders available</SelectItem>
+                  )}
                 </SelectContent>
               </Select>
             </div>
@@ -369,22 +411,13 @@ const BookmarkList = ({ bookmarks, folderId, folderName }: BookmarkListProps) =>
               <Label htmlFor="label" className="text-right">
                 Label
               </Label>
-              <Select 
-                value={newBookmarkLabel || ""} 
-                onValueChange={(value) => setNewBookmarkLabel(value || null)}
-              >
-                <SelectTrigger id="label" className="col-span-3">
-                  <SelectValue placeholder="Add a label" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">None</SelectItem>
-                  {labels.filter(l => l !== "all").map(label => (
-                    <SelectItem key={label} value={label}>
-                      {label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Input
+                id="label"
+                placeholder="Add a label (optional)"
+                className="col-span-3"
+                value={newBookmarkLabel}
+                onChange={(e) => setNewBookmarkLabel(e.target.value)}
+              />
             </div>
             
             <div className="grid grid-cols-4 items-center gap-4">

@@ -1,5 +1,4 @@
-//components/bookmarks/BookmarkCard.tsx
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { 
   Copy, 
   ExternalLink, 
@@ -10,7 +9,7 @@ import {
   MessageSquare,
   Loader2
 } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "react-hot-toast";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -36,17 +35,11 @@ import { useAuth } from '@/lib/hooks/useAuth';
 
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { useFoldersStore } from '@/lib/stores/useFoldersStore';
 
 interface BookmarkCardProps {
   bookmark: BookmarkWithFolder;
+  onBookmarkChange?: () => void; // Callback for when bookmark is modified
 }
 
 const getPlatformColor = (platform: string) => {
@@ -64,8 +57,7 @@ const getPlatformColor = (platform: string) => {
   }
 };
 
-const BookmarkCard = ({ bookmark }: BookmarkCardProps) => {
-
+const BookmarkCard = ({ bookmark, onBookmarkChange }: BookmarkCardProps) => {
   const { user } = useAuth();
   // Use our zustand stores
   const { deleteBookmark, updateBookmark } = useBookmarksStore();
@@ -84,6 +76,16 @@ const BookmarkCard = ({ bookmark }: BookmarkCardProps) => {
   const [editLabel, setEditLabel] = useState(bookmark.label || "");
   const [editNotes, setEditNotes] = useState(bookmark.notes || "");
   
+  // Reset edit form when bookmark changes
+  useEffect(() => {
+    setEditTitle(bookmark.title);
+    setEditUrl(bookmark.url);
+    setEditFolder(bookmark.folder_id);
+    setEditPlatform(bookmark.platform || "");
+    setEditLabel(bookmark.label || "");
+    setEditNotes(bookmark.notes || "");
+  }, [bookmark]);
+  
   const platformColor = getPlatformColor(bookmark.platform || '');
   const createdDate = bookmark.created_at ? new Date(bookmark.created_at) : new Date();
   const timeAgo = formatDistanceToNow(createdDate, { addSuffix: true });
@@ -94,7 +96,6 @@ const BookmarkCard = ({ bookmark }: BookmarkCardProps) => {
   };
   
   const handleDelete = async () => {
-
     if (!user) {
       toast.error('You must be logged in to delete bookmarks');
       return;
@@ -109,10 +110,15 @@ const BookmarkCard = ({ bookmark }: BookmarkCardProps) => {
 
     try {
       await deleteBookmark(user.id, bookmark.id);
-      toast.success('Bookmark deleted successfully');
+      
+      // Notify parent about changes
+      if (onBookmarkChange) {
+        onBookmarkChange();
+      }
+      
       setIsDeleteDialogOpen(false);
     } catch (error) {
-      console.log('error : ', error)
+      console.log('error : ', error);
       // Error is handled in the hook
     } finally {
       setIsSubmitting(false);
@@ -142,7 +148,11 @@ const BookmarkCard = ({ bookmark }: BookmarkCardProps) => {
         notes: editNotes || null
       });
       
-      // Success toast handled in store
+      // Notify parent about changes
+      if (onBookmarkChange) {
+        onBookmarkChange();
+      }
+      
       setIsEditDialogOpen(false);
     } catch (error) {
       console.log('error: ', error);
@@ -152,7 +162,7 @@ const BookmarkCard = ({ bookmark }: BookmarkCardProps) => {
     }
   };
   
-  // Reset edit form when opening dialog
+  // Open edit dialog and ensure form state is updated
   const openEditDialog = () => {
     setEditTitle(bookmark.title);
     setEditUrl(bookmark.url);
@@ -299,7 +309,7 @@ const BookmarkCard = ({ bookmark }: BookmarkCardProps) => {
         </DialogContent>
       </Dialog>
       
-      {/* Edit dialog */}
+      {/* Edit dialog with native select elements for stability */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="glass-card">
           <DialogHeader>
@@ -338,40 +348,41 @@ const BookmarkCard = ({ bookmark }: BookmarkCardProps) => {
               <Label htmlFor="edit-folder" className="text-right">
                 Folder
               </Label>
-              <Select value={editFolder} onValueChange={setEditFolder}>
-                <SelectTrigger id="edit-folder" className="col-span-3">
-                  <SelectValue placeholder="Select folder" />
-                </SelectTrigger>
-                <SelectContent>
+              <div className="col-span-3">
+                <select 
+                  id="edit-folder"
+                  value={editFolder}
+                  onChange={(e) => setEditFolder(e.target.value)}
+                  className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm"
+                >
                   {folders.map(folder => (
-                    <SelectItem key={folder.id} value={folder.id}>
+                    <option key={folder.id} value={folder.id}>
                       {folder.name}
-                    </SelectItem>
+                    </option>
                   ))}
-                </SelectContent>
-              </Select>
+                </select>
+              </div>
             </div>
             
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="edit-platform" className="text-right">
                 Platform
               </Label>
-              <Select 
-                value={editPlatform} 
-                onValueChange={setEditPlatform}
-              >
-                <SelectTrigger id="edit-platform" className="col-span-3">
-                  <SelectValue placeholder="Select platform" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">None</SelectItem>
-                  <SelectItem value="ChatGPT">ChatGPT</SelectItem>
-                  <SelectItem value="Claude">Claude</SelectItem>
-                  <SelectItem value="Gemini">Gemini</SelectItem>
-                  <SelectItem value="Deepseek">Deepseek</SelectItem>
-                  <SelectItem value="Other">Other</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="col-span-3">
+                <select 
+                  id="edit-platform"
+                  value={editPlatform}
+                  onChange={(e) => setEditPlatform(e.target.value)}
+                  className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm"
+                >
+                  <option value="">None</option>
+                  <option value="ChatGPT">ChatGPT</option>
+                  <option value="Claude">Claude</option>
+                  <option value="Gemini">Gemini</option>
+                  <option value="Deepseek">Deepseek</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
             </div>
             
             <div className="grid grid-cols-4 items-center gap-4">

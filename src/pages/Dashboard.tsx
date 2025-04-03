@@ -5,6 +5,11 @@ import BookmarkCard from "@/components/bookmarks/BookmarkCard";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { useBookmarksStore } from "@/lib/stores/useBookmarksStore";
 import { Loader2 } from "lucide-react";
+import { Crown, Check, ExternalLink } from "lucide-react";
+import { useSubscriptionStore } from "@/lib/stores/useSubscriptionStore";
+import { Button } from "@/components/ui/button";
+import { useNavigate } from "react-router-dom";
+
 
 // Mock stats data for now
 const MOCK_STATS = {
@@ -18,6 +23,10 @@ const Dashboard = () => {
   const { user } = useAuth();
   const [stats, setStats] = useState(MOCK_STATS);
   const [isLoadingStats, setIsLoadingStats] = useState(true);
+  const { tier } = useSubscriptionStore();
+  const navigate = useNavigate();
+
+
   
   // Use the custom hook to fetch bookmarks with a limit of 3
   const { 
@@ -62,6 +71,42 @@ const Dashboard = () => {
         </div>
         
         <Stats stats={stats} />
+        {tier === 'free' && (
+          <div className="mt-6 p-4 rounded-lg border border-primary/20 bg-primary/5">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-primary/20 rounded-full">
+                  <Crown className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <h3 className="font-medium">Unlock Premium Features</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Upgrade to Premium for unlimited folders and bookmarks
+                  </p>
+                </div>
+              </div>
+              <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="justify-start gap-1.5 md:justify-center"
+                  onClick={() => navigate('/settings?tab=subscription')}
+                >
+                  <Check className="h-4 w-4" />
+                  <span>View Benefits</span>
+                </Button>
+                <Button 
+                  className="gap-1.5 justify-start md:justify-center" 
+                  size="sm"
+                  onClick={() => navigate('/settings?tab=subscription')}
+                >
+                  <ExternalLink className="h-4 w-4" />
+                  <span>Upgrade Now</span>
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
         
         <div className="mt-8">
           <h2 className="text-2xl font-semibold mb-4">Recent Bookmarks</h2>
