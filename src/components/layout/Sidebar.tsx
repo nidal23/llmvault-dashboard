@@ -1,5 +1,5 @@
 //components/layout/Sidebar.tsx
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { 
   LayoutDashboard,
@@ -15,6 +15,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { cn } from "@/lib/utils";
 import { 
   Dialog,
   DialogContent,
@@ -45,21 +46,17 @@ const Sidebar = ({ open, onOpenChange }: SidebarProps) => {
   const [newFolderName, setNewFolderName] = useState("");
   const [parentFolderId, setParentFolderId] = useState<string | null>(null);
   
-  // Use the folders hook instead of manually managing state and API calls
-  // const { 
-  //   folders, 
-  //   isLoading, 
-  //   error,
-  //   createFolder: handleCreateFolder 
-  // } = useFolders({ 
-  //   autoFetch: !!user 
-  // });
+  // Drag and drop state
+  const [draggedFolderId, setDraggedFolderId] = useState<string | null>(null);
+  const [dropTargetId, setDropTargetId] = useState<string | null>(null);
+  const [isDraggingOver, setIsDraggingOver] = useState(false);
 
   const { 
     folders, 
     isLoading, 
     error,
     createFolder: handleCreateFolder,
+    moveFolder,
     fetchFolders
   } = useFoldersStore();
 
@@ -68,7 +65,25 @@ const Sidebar = ({ open, onOpenChange }: SidebarProps) => {
       fetchFolders(user.id);
     }
   }, [user, fetchFolders]);
-
+  
+  // Function to recursively get all descendants of a folder
+  const getAllDescendants = useCallback((folderId: string): string[] => {
+    const directChildren = folders
+      .filter(folder => folder.parent_id === folderId)
+      .map(folder => folder.id);
+      
+    if (directChildren.length === 0) return [];
+    
+    const allDescendants = [...directChildren];
+    
+    // Recursively get descendants of each child
+    directChildren.forEach(childId => {
+      const childDescendants = getAllDescendants(childId);
+      allDescendants.push(...childDescendants);
+    });
+    
+    return allDescendants;
+  }, [folders]);
 
   const toggleFolder = (folderId: string) => {
     if (expandedFolders.includes(folderId)) {
@@ -118,6 +133,72 @@ const Sidebar = ({ open, onOpenChange }: SidebarProps) => {
     }
   };
   
+  // Drag and drop handlers
+  const handleDragStart = useCallback((e: React.DragEvent, folderId: string) => {
+    e.stopPropagation();
+    setDraggedFolderId(folderId);
+    e.dataTransfer.setData('text/plain', folderId);
+    e.dataTransfer.effectAllowed = 'move';
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent, folderId: string | null) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (!draggedFolderId || draggedFolderId === folderId) return;
+    
+    // Prevent dropping on itself
+    if (draggedFolderId === folderId) {
+      e.dataTransfer.dropEffect = 'none';
+      return;
+    }
+    
+    // Prevent dropping on its own descendants
+    if (folderId && getAllDescendants(draggedFolderId).includes(folderId)) {
+      e.dataTransfer.dropEffect = 'none';
+      return;
+    }
+    
+    e.dataTransfer.dropEffect = 'move';
+    setDropTargetId(folderId);
+    setIsDraggingOver(true);
+  }, [draggedFolderId, getAllDescendants]);
+
+  const handleDragEnd = useCallback(() => {
+    setDraggedFolderId(null);
+    setDropTargetId(null);
+    setIsDraggingOver(false);
+  }, []);
+
+  const handleDrop = useCallback(async (e: React.DragEvent, targetFolderId: string | null) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    setIsDraggingOver(false);
+    
+    const folderId = e.dataTransfer.getData('text/plain');
+    if (!folderId) return;
+    
+    // Prevent dropping on itself
+    if (folderId === targetFolderId) return;
+    
+    // Prevent dropping into its own descendants
+    if (targetFolderId && getAllDescendants(folderId).includes(targetFolderId)) {
+      toast.error('Cannot move a folder into its own subfolder');
+      return;
+    }
+    
+    try {
+      await moveFolder(user.id, folderId, targetFolderId);
+    } catch (error) {
+      console.log('error:', error);
+      // Error is handled in the store
+    }
+    
+    setDraggedFolderId(null);
+    setDropTargetId(null);
+  }, [getAllDescendants, moveFolder, user.id]);
+  
   // Create a recursive function to render folders
   const renderFolderTree = (parentId: string | null) => {
     const childFolders = folders.filter(folder => folder.parent_id === parentId);
@@ -125,11 +206,25 @@ const Sidebar = ({ open, onOpenChange }: SidebarProps) => {
     return childFolders.map(folder => {
       const hasChildren = folders.some(f => f.parent_id === folder.id);
       const isExpanded = expandedFolders.includes(folder.id);
+      const isBeingDragged = draggedFolderId === folder.id;
+      const isDropTarget = dropTargetId === folder.id;
       
       return (
-        <div key={folder.id} className="ml-3">
+        <div 
+          key={folder.id} 
+          className="ml-3"
+          draggable
+          onDragStart={(e) => handleDragStart(e, folder.id)}
+          onDragEnd={handleDragEnd}
+          onDragOver={(e) => handleDragOver(e, folder.id)}
+          onDrop={(e) => handleDrop(e, folder.id)}
+        >
           <div 
-            className="flex items-center py-1 px-2 rounded-md hover:bg-accent cursor-pointer text-sm"
+            className={cn(
+              "flex items-center py-1 px-2 rounded-md hover:bg-accent cursor-pointer text-sm",
+              isDropTarget && "bg-accent/70 outline outline-1 outline-primary",
+              isBeingDragged && "opacity-50"
+            )}
             onClick={(e) => handleFolderClick(folder.id, e)}
           >
             {hasChildren ? (
@@ -164,6 +259,35 @@ const Sidebar = ({ open, onOpenChange }: SidebarProps) => {
       );
     });
   };
+  
+  // Root drop area for making folders root-level
+  const RootDropArea = () => (
+    <div 
+      className={cn(
+        "p-2 rounded-md border border-dashed transition-colors my-2",
+        (isDraggingOver && dropTargetId === null) ? "border-primary bg-accent/30" : "border-transparent"
+      )}
+      onDragOver={(e) => {
+        e.preventDefault();
+        if (draggedFolderId) {
+          setDropTargetId(null);
+          setIsDraggingOver(true);
+        }
+      }}
+      onDragLeave={() => {
+        if (dropTargetId === null) {
+          setIsDraggingOver(false);
+        }
+      }}
+      onDrop={(e) => handleDrop(e, null)}
+    >
+      {(isDraggingOver && dropTargetId === null) && (
+        <div className="text-center text-xs text-muted-foreground">
+          Drop here to make a root folder
+        </div>
+      )}
+    </div>
+  );
   
   if (!open) {
     return null;
@@ -260,7 +384,7 @@ const Sidebar = ({ open, onOpenChange }: SidebarProps) => {
                     </Label>
                     <select
                       id="parent"
-                      className="col-span-3"
+                      className="col-span-3 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm"
                       value={parentFolderId || ""}
                       onChange={(e) => setParentFolderId(e.target.value || null)}
                     >
@@ -299,7 +423,10 @@ const Sidebar = ({ open, onOpenChange }: SidebarProps) => {
                 </Button>
               </div>
             ) : folders.length > 0 ? (
-              renderFolderTree(null)
+              <>
+                <RootDropArea />
+                {renderFolderTree(null)}
+              </>
             ) : (
               <div className="text-center py-8">
                 <p className="text-sm text-muted-foreground">No folders yet</p>
