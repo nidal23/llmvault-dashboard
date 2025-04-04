@@ -38,13 +38,14 @@ import { Shield, Crown, Check } from "lucide-react";
 
 const SettingsPanel = () => {
   const { user, profile } = useAuth();
-  const { subscription ,tier, isActive } = useSubscriptionStore();
+  const { subscription, tier, isActive } = useSubscriptionStore();
   const { 
     settings, 
     isLoading,
     fetchSettings,
     updateTheme, 
-    updateDefaultLabels, 
+    updateDefaultLabels,
+    updatePlatforms,
     toggleAutoDetectPlatform 
   } = useUserSettingsStore();
 
@@ -61,10 +62,12 @@ const SettingsPanel = () => {
   const [autoDetectPlatform, setAutoDetectPlatform] = useState(true);
   const [newLabel, setNewLabel] = useState("");
   const [labels, setLabels] = useState<string[]>([]);
+  const [newPlatform, setNewPlatform] = useState("");
+  const [platforms, setPlatforms] = useState<string[]>([]);
   const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
   
   // Helper function to safely convert Json to string array
-  const parseLabelsFromJson = (json: Json | null): string[] => {
+  const parseArrayFromJson = (json: Json | null): string[] => {
     if (!json) return [];
     
     if (Array.isArray(json)) {
@@ -84,7 +87,14 @@ const SettingsPanel = () => {
       setAutoDetectPlatform(settings.auto_detect_platform !== false);
       
       // Handle default_labels
-      setLabels(parseLabelsFromJson(settings.default_labels));
+      setLabels(parseArrayFromJson(settings.default_labels));
+      
+      // Handle platforms with default values if null
+      setPlatforms(
+        settings.platforms 
+          ? parseArrayFromJson(settings.platforms) 
+          : ["ChatGPT", "Claude", "Deepseek", "Gemini"]
+      );
     }
   }, [settings]);
   
@@ -155,6 +165,38 @@ const SettingsPanel = () => {
       setLabels(labels);
     });
   };
+
+  const handleAddPlatform = () => {
+    if (!user) return;
+    if (newPlatform.trim() === "") return;
+    if (platforms.includes(newPlatform.trim())) {
+      toast.error("This platform already exists");
+      return;
+    }
+    
+    const updatedPlatforms = [...platforms, newPlatform.trim()];
+    setPlatforms(updatedPlatforms);
+    setNewPlatform("");
+    
+    // Save platforms immediately for better UX
+    updatePlatforms(user.id, updatedPlatforms).catch(() => {
+      // Revert on error
+      setPlatforms(platforms);
+    });
+  };
+  
+  const handleRemovePlatform = (platform: string) => {
+    if (!user) return;
+    
+    const updatedPlatforms = platforms.filter((p) => p !== platform);
+    setPlatforms(updatedPlatforms);
+    
+    // Save platforms immediately for better UX
+    updatePlatforms(user.id, updatedPlatforms).catch(() => {
+      // Revert on error
+      setPlatforms(platforms);
+    });
+  };
   
   const handleSignOut = async () => {
     try {
@@ -182,6 +224,7 @@ const SettingsPanel = () => {
           <TabsTrigger value="general">General</TabsTrigger>
           <TabsTrigger value="appearance">Appearance</TabsTrigger>
           <TabsTrigger value="labels">Labels</TabsTrigger>
+          <TabsTrigger value="platforms">Platforms</TabsTrigger>
           <TabsTrigger value="account">Account</TabsTrigger>
         </TabsList>
         
@@ -404,6 +447,69 @@ const SettingsPanel = () => {
                   >
                     <Plus className="h-4 w-4" />
                     <span className="sr-only">Add label</span>
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="platforms" className="mt-6">
+          <Card className="glass-card">
+            <CardHeader>
+              <CardTitle>Platform Management</CardTitle>
+              <CardDescription>
+                Customize LLM platforms for categorizing your bookmarks.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-4">
+                <div className="flex flex-wrap gap-2">
+                  {platforms.length === 0 && (
+                    <p className="text-sm text-muted-foreground">
+                      No platforms yet. Add some below to categorize your bookmarks by LLM platforms.
+                    </p>
+                  )}
+                  
+                  {platforms.map((platform) => (
+                    <Badge key={platform} variant="secondary" className="px-3 py-1 text-sm">
+                      <span className="mr-1">{platform}</span>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-4 w-4 rounded-full ml-1 hover:bg-secondary"
+                        onClick={() => handleRemovePlatform(platform)}
+                        disabled={isLoading}
+                      >
+                        <X className="h-3 w-3" />
+                        <span className="sr-only">Remove {platform}</span>
+                      </Button>
+                    </Badge>
+                  ))}
+                </div>
+                
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Add new platform..."
+                    value={newPlatform}
+                    onChange={(e) => setNewPlatform(e.target.value)}
+                    className="flex-1"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        handleAddPlatform();
+                      }
+                    }}
+                    disabled={isLoading}
+                  />
+                  <Button 
+                    variant="outline" 
+                    size="icon"
+                    onClick={handleAddPlatform}
+                    disabled={!newPlatform.trim() || isLoading}
+                  >
+                    <Plus className="h-4 w-4" />
+                    <span className="sr-only">Add platform</span>
                   </Button>
                 </div>
               </div>

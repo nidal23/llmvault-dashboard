@@ -4,6 +4,7 @@ import { persist } from 'zustand/middleware';
 import { supabase } from '../supabase/client';
 import { UserSettings } from '../supabase/database.types';
 import { toast } from 'react-hot-toast';
+
 interface UserSettingsState {
   // Data
   settings: UserSettings | null;
@@ -17,6 +18,7 @@ interface UserSettingsState {
   updateSettings: (userId: string, updates: Partial<UserSettings>) => Promise<UserSettings | null>;
   updateTheme: (userId: string, theme: 'light' | 'dark' | 'system') => Promise<UserSettings | null>;
   updateDefaultLabels: (userId: string, labels: string[]) => Promise<UserSettings | null>;
+  updatePlatforms: (userId: string, platforms: string[]) => Promise<UserSettings | null>;
   toggleAutoDetectPlatform: (userId: string) => Promise<UserSettings | null>;
 }
 
@@ -46,7 +48,21 @@ export const useUserSettingsStore = create<UserSettingsState>()(
           
           if (error) throw error;
           
-          set({ settings: data, isLoading: false });
+          // Initialize default platforms if not set
+          if (!data.platforms) {
+            const defaultPlatforms = ["ChatGPT", "Claude", "Deepseek", "Gemini"];
+            const { data: updatedData, error: updateError } = await supabase
+              .from('user_settings')
+              .update({ platforms: defaultPlatforms })
+              .eq('user_id', userId)
+              .select()
+              .single();
+              
+            if (updateError) throw updateError;
+            set({ settings: updatedData, isLoading: false });
+          } else {
+            set({ settings: data, isLoading: false });
+          }
         } catch (err) {
           console.error('Error fetching user settings:', err);
           set({ 
@@ -76,7 +92,7 @@ export const useUserSettingsStore = create<UserSettingsState>()(
               .update(updates)
               .eq('user_id', userId)
               .select()
-              .single()
+              .single();
 
         
           if (error) throw error;
@@ -102,6 +118,11 @@ export const useUserSettingsStore = create<UserSettingsState>()(
       // Update default labels with optimistic update
       updateDefaultLabels: async (userId: string, labels: string[]) => {
         return get().updateSettings(userId, { default_labels: labels });
+      },
+      
+      // Update platforms with optimistic update
+      updatePlatforms: async (userId: string, platforms: string[]) => {
+        return get().updateSettings(userId, { platforms });
       },
       
       // Toggle platform auto-detection with optimistic update

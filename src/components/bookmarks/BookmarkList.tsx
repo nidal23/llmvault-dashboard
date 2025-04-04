@@ -6,7 +6,8 @@ import {
   Plus,
   Bookmark as BookmarkIcon,
   Tag,
-  Loader2
+  Loader2,
+  X
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,13 +34,16 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import BookmarkCard from "./BookmarkCard";
 import { Badge } from "@/components/ui/badge";
-import { BookmarkWithFolder } from '../../lib/supabase/database.types';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Json, BookmarkWithFolder } from '../../lib/supabase/database.types';
 import { useFoldersStore } from '@/lib/stores/useFoldersStore';
 import { useBookmarksStore } from '@/lib/stores/useBookmarksStore';
+import { useUserSettingsStore } from '@/lib/stores/useUserSettingsStore';
 import { toast } from "react-hot-toast";
 import { useAuth } from "@/lib/hooks/useAuth";
+import BookmarkCard from "./BookmarkCard";
 
 interface BookmarkListProps {
   bookmarks: BookmarkWithFolder[];
@@ -51,6 +55,7 @@ interface BookmarkListProps {
 const BookmarkList = ({ bookmarks, folderId, folderName, onBookmarksChange }: BookmarkListProps) => {
   const { folders } = useFoldersStore();
   const { createBookmark, fetchBookmarks, updateFilters } = useBookmarksStore();
+  const { settings, fetchSettings } = useUserSettingsStore();
   const { user } = useAuth();
   
   const [search, setSearch] = useState("");
@@ -63,10 +68,34 @@ const BookmarkList = ({ bookmarks, folderId, folderName, onBookmarksChange }: Bo
   const [newBookmarkUrl, setNewBookmarkUrl] = useState("");
   const [newBookmarkTitle, setNewBookmarkTitle] = useState("");
   const [newBookmarkPlatform, setNewBookmarkPlatform] = useState("");
+  const [isPlatformOpen, setIsPlatformOpen] = useState(false);
   const [newBookmarkLabel, setNewBookmarkLabel] = useState<string>("");
+  const [isLabelOpen, setIsLabelOpen] = useState(false);
   const [newBookmarkNotes, setNewBookmarkNotes] = useState("");
   const [newBookmarkFolder, setNewBookmarkFolder] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Helper function to safely convert Json to string array
+  const parseArrayFromJson = (json: Json | null): string[] => {
+    if (!json) return [];
+    
+    if (Array.isArray(json)) {
+      return json.filter(item => typeof item === 'string') as string[];
+    }
+    
+    return [];
+  };
+  
+  // Extract platforms and labels from user settings
+  const availablePlatforms = settings ? parseArrayFromJson(settings.platforms) : ["ChatGPT", "Claude", "Deepseek", "Gemini"];
+  const availableLabels = settings ? parseArrayFromJson(settings.default_labels) : [];
+  
+  // Fetch user settings if they're not already loaded
+  useEffect(() => {
+    if (user && !settings) {
+      fetchSettings(user.id);
+    }
+  }, [user, settings, fetchSettings]);
   
   // Initialize folder selection when folders are available
   useEffect(() => {
@@ -221,13 +250,13 @@ const BookmarkList = ({ bookmarks, folderId, folderName, onBookmarksChange }: Bo
               placeholder="Search bookmarks..."
               value={search}
               onChange={(e) => handleSearch(e.target.value)}
-              className="pl-9 focus-visible:ring-1"
+              className="pl-9 focus-visible:ring-1 dark:border-gray-700 dark:bg-gray-800/50"
             />
           </div>
           
           <div className="flex gap-2">
             <Select value={filterPlatform} onValueChange={setFilterPlatform}>
-              <SelectTrigger className="w-32">
+              <SelectTrigger className="w-32 dark:border-gray-700 dark:bg-gray-800/50">
                 <SelectValue placeholder="Platform" />
               </SelectTrigger>
               <SelectContent>
@@ -243,7 +272,7 @@ const BookmarkList = ({ bookmarks, folderId, folderName, onBookmarksChange }: Bo
             </Select>
             
             <Select value={filterLabel} onValueChange={setFilterLabel}>
-              <SelectTrigger className="w-32">
+              <SelectTrigger className="w-32 dark:border-gray-700 dark:bg-gray-800/50">
                 <SelectValue placeholder="Label" />
               </SelectTrigger>
               <SelectContent>
@@ -257,7 +286,7 @@ const BookmarkList = ({ bookmarks, folderId, folderName, onBookmarksChange }: Bo
             
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="icon">
+                <Button variant="outline" size="icon" className="dark:border-gray-700 dark:bg-gray-800/50">
                   <ArrowDownUp className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
@@ -342,7 +371,7 @@ const BookmarkList = ({ bookmarks, folderId, folderName, onBookmarksChange }: Bo
               <Input
                 id="url"
                 placeholder="https://chat.openai.com/..."
-                className="col-span-3"
+                className="col-span-3 dark:border-gray-700 dark:bg-gray-800/50"
                 value={newBookmarkUrl}
                 onChange={(e) => setNewBookmarkUrl(e.target.value)}
               />
@@ -355,7 +384,7 @@ const BookmarkList = ({ bookmarks, folderId, folderName, onBookmarksChange }: Bo
               <Input
                 id="title"
                 placeholder="My ChatGPT Conversation"
-                className="col-span-3"
+                className="col-span-3 dark:border-gray-700 dark:bg-gray-800/50"
                 value={newBookmarkTitle}
                 onChange={(e) => setNewBookmarkTitle(e.target.value)}
               />
@@ -369,7 +398,7 @@ const BookmarkList = ({ bookmarks, folderId, folderName, onBookmarksChange }: Bo
                 value={newBookmarkFolder} 
                 onValueChange={setNewBookmarkFolder}
               >
-                <SelectTrigger id="folder" className="col-span-3">
+                <SelectTrigger id="folder" className="col-span-3 dark:border-gray-700 dark:bg-gray-800/50">
                   <SelectValue placeholder="Select a folder" />
                 </SelectTrigger>
                 <SelectContent>
@@ -390,34 +419,136 @@ const BookmarkList = ({ bookmarks, folderId, folderName, onBookmarksChange }: Bo
               <Label htmlFor="platform" className="text-right">
                 Platform
               </Label>
-              <Select 
-                value={newBookmarkPlatform} 
-                onValueChange={setNewBookmarkPlatform}
-              >
-                <SelectTrigger id="platform" className="col-span-3">
-                  <SelectValue placeholder="Select a platform" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ChatGPT">ChatGPT</SelectItem>
-                  <SelectItem value="Claude">Claude</SelectItem>
-                  <SelectItem value="Gemini">Gemini</SelectItem>
-                  <SelectItem value="Deepseek">Deepseek</SelectItem>
-                  <SelectItem value="Other">Other</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="col-span-3">
+                <Popover open={isPlatformOpen} onOpenChange={setIsPlatformOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={isPlatformOpen}
+                      className="w-full justify-between dark:border-gray-700 dark:bg-gray-800/50"
+                    >
+                      {newBookmarkPlatform
+                        ? newBookmarkPlatform
+                        : "Select platform..."}
+                      {newBookmarkPlatform && (
+                        <X
+                          className="ml-2 h-4 w-4 shrink-0 opacity-50 hover:opacity-100"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setNewBookmarkPlatform("");
+                          }}
+                        />
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="p-0 w-full min-w-[220px]" align="start">
+                    <Command>
+                      <CommandInput
+                        placeholder="Search or enter new platform..."
+                        value={newBookmarkPlatform}
+                        onValueChange={setNewBookmarkPlatform}
+                        className="h-9"
+                      />
+                      <CommandEmpty>
+                        {newBookmarkPlatform ? (
+                          <div className="px-2 py-1.5 text-sm">
+                            Press Enter to add "{newBookmarkPlatform}"
+                          </div>
+                        ) : (
+                          <div className="px-2 py-1.5 text-sm">No platforms found</div>
+                        )}
+                      </CommandEmpty>
+                      <CommandGroup>
+                        {availablePlatforms.map((platform) => (
+                          <CommandItem
+                            key={platform}
+                            value={platform}
+                            onSelect={() => {
+                              setNewBookmarkPlatform(platform);
+                              setIsPlatformOpen(false);
+                            }}
+                            className="cursor-pointer"
+                          >
+                            {platform}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              </div>
             </div>
             
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="label" className="text-right">
                 Label
               </Label>
-              <Input
-                id="label"
-                placeholder="Add a label (optional)"
-                className="col-span-3"
-                value={newBookmarkLabel}
-                onChange={(e) => setNewBookmarkLabel(e.target.value)}
-              />
+              <div className="col-span-3">
+                <Popover open={isLabelOpen} onOpenChange={setIsLabelOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={isLabelOpen}
+                      className="w-full justify-between dark:border-gray-700 dark:bg-gray-800/50"
+                    >
+                      {newBookmarkLabel
+                        ? newBookmarkLabel
+                        : "Select or enter label..."}
+                      {newBookmarkLabel && (
+                        <X
+                          className="ml-2 h-4 w-4 shrink-0 opacity-50 hover:opacity-100"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setNewBookmarkLabel("");
+                          }}
+                        />
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="p-0 w-full min-w-[220px]" align="start">
+                    <Command>
+                      <CommandInput
+                        placeholder="Search or enter new label..."
+                        value={newBookmarkLabel}
+                        onValueChange={setNewBookmarkLabel}
+                        className="h-9"
+                      />
+                      <CommandEmpty>
+                        {newBookmarkLabel ? (
+                          <div className="px-2 py-1.5 text-sm">
+                            Press Enter to add "{newBookmarkLabel}"
+                          </div>
+                        ) : (
+                          <div className="px-2 py-1.5 text-sm">No labels found</div>
+                        )}
+                      </CommandEmpty>
+                      <CommandGroup>
+                        {availableLabels.length > 0 ? (
+                          availableLabels.map((label) => (
+                            <CommandItem
+                              key={label}
+                              value={label}
+                              onSelect={() => {
+                                setNewBookmarkLabel(label);
+                                setIsLabelOpen(false);
+                              }}
+                              className="cursor-pointer"
+                            >
+                              {label}
+                            </CommandItem>
+                          ))
+                        ) : (
+                          <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                            No saved labels. Type to create one.
+                          </div>
+                        )}
+                      </CommandGroup>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              </div>
             </div>
             
             <div className="grid grid-cols-4 items-center gap-4">
@@ -427,7 +558,7 @@ const BookmarkList = ({ bookmarks, folderId, folderName, onBookmarksChange }: Bo
               <Input
                 id="notes"
                 placeholder="Add notes about this bookmark"
-                className="col-span-3"
+                className="col-span-3 dark:border-gray-700 dark:bg-gray-800/50"
                 value={newBookmarkNotes}
                 onChange={(e) => setNewBookmarkNotes(e.target.value)}
               />
