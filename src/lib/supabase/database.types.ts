@@ -179,18 +179,21 @@ export type Database = {
         Row: {
           auto_detect_platform: boolean | null
           default_labels: Json | null
+          platforms: Json | null
           theme: string | null
           user_id: string
         }
         Insert: {
           auto_detect_platform?: boolean | null
           default_labels?: Json | null
+          platforms?: Json | null
           theme?: string | null
           user_id: string
         }
         Update: {
           auto_detect_platform?: boolean | null
           default_labels?: Json | null
+          platforms?: Json | null
           theme?: string | null
           user_id?: string
         }
