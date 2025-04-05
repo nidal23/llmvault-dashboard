@@ -232,7 +232,7 @@ const BookmarkList = ({ bookmarks, folderId, folderName, onBookmarksChange }: Bo
       <div className="flex flex-col gap-4">
         <div className="flex items-center justify-between">
           <h2 className="text-2xl font-semibold">
-            {folderName || "All Bookmarks"}
+            {folderName || "All Conversations"}
           </h2>
           <Button 
             className="apple-button" 

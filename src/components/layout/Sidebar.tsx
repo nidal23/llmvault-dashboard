@@ -335,7 +335,7 @@ const Sidebar = ({ open, onOpenChange }: SidebarProps) => {
               onClick={handleCloseSidebar}
             >
               <Bookmark className="h-5 w-5" />
-              <span>All Bookmarks</span>
+              <span>All Conversations</span>
             </Link>
             <Link 
               to="/settings" 
