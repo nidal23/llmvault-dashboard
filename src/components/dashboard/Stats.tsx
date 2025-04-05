@@ -29,7 +29,7 @@ import {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 animate-fade-in">
         <Card className="glass-card">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Bookmarks</CardTitle>
+            <CardTitle className="text-sm font-medium">Total Conversations</CardTitle>
             <Bookmark className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -72,7 +72,7 @@ import {
             <Activity className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.averagePerDay}</div>
+            <div className="text-2xl font-bold">{Math.round(stats.averagePerDay)}</div>
             <p className="text-xs text-muted-foreground">
               Bookmarks per day
             </p>

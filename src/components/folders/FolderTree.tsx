@@ -450,7 +450,7 @@ const FolderTree = ({ folders, selectedFolder, onFolderSelect }: FolderTreeProps
       onClick={() => onFolderSelect('')}
     >
       <ArrowLeft className="mr-2 h-4 w-4" />
-      All Bookmarks
+      All Conversations
     </Button>
   ), [onFolderSelect]);
   

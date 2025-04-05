@@ -10,13 +10,12 @@ import { useSubscriptionStore } from "@/lib/stores/useSubscriptionStore";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 
-
 // Mock stats data for now
 const MOCK_STATS = {
-  totalBookmarks: 42,
-  totalFolders: 8,
-  recentBookmarks: 12,
-  averagePerDay: 3.5
+  totalBookmarks: 0,
+  totalFolders: 0,
+  recentBookmarks: 0,
+  averagePerDay: 0
 };
 
 const Dashboard = () => {
@@ -49,7 +48,7 @@ const Dashboard = () => {
     if (bookmarkStats) {
       setStats({
         totalBookmarks: bookmarkStats.totalCount || 0,
-        totalFolders: MOCK_STATS.totalFolders, // We'll need to fetch this separately
+        totalFolders: bookmarkStats.folderCount || 0, // Now using real folder count from usage_stats
         recentBookmarks: bookmarkStats.recentCount || 0,
         averagePerDay: (bookmarkStats.recentCount || 0) / 7
       });

@@ -143,59 +143,96 @@ export const deleteBookmark = async (userId: string, bookmarkId: string): Promis
   if (error) throw error;
 };
 
+// src/lib/api/bookmarks.ts
+
+/**
+ * Get bookmark statistics for a user
+ * 
+ * @param userId The ID of the user
+ * @returns Bookmark statistics including counts, recent activity, etc.
+ */
 export const getBookmarkStats = async (userId: string): Promise<{
-  totalCount: number;
-  byPlatform: Record<string, number>;
-  byLabel: Record<string, number>;
-  recentCount: number;
+totalCount: number;
+byPlatform: Record<string, number>;
+byLabel: Record<string, number>;
+recentCount: number;
+folderCount?: number;
 }> => {
-  // Get total count
-  const { count: totalCount, error: countError } = await supabase
-    .from('bookmarks')
-    .select('*', { count: 'exact', head: true })
-    .eq('user_id', userId);
-    
-  if (countError) throw countError;
-  
-  // Get all bookmarks for platform and label stats
-  const { data: allBookmarks, error: bookmarksError } = await supabase
-    .from('bookmarks')
-    .select('platform, label')
-    .eq('user_id', userId);
-    
-  if (bookmarksError) throw bookmarksError;
-  
-  // Calculate platform stats
-  const byPlatform: Record<string, number> = {};
-  allBookmarks.forEach(bookmark => {
-    const platform = bookmark.platform || 'unknown';
-    byPlatform[platform] = (byPlatform[platform] || 0) + 1;
-  });
-  
-  // Calculate label stats
-  const byLabel: Record<string, number> = {};
-  allBookmarks.forEach(bookmark => {
-    if (bookmark.label) {
-      byLabel[bookmark.label] = (byLabel[bookmark.label] || 0) + 1;
-    }
-  });
-  
-  // Get recent count (last 7 days)
+  if (!userId) {
+    throw new Error('User ID is required');
+  }
+
+  // First, get the usage stats which includes both bookmark and folder counts
+  const { data: usageStats, error: usageStatsError } = await supabase
+    .from('usage_stats')
+    .select('*')
+    .eq('user_id', userId)
+    .single();
+
+  if (usageStatsError) {
+    console.error('Error fetching usage stats:', usageStatsError);
+    // Continue with the function, we'll set defaults
+  }
+
+  // Get recent bookmarks count (last 7 days)
   const sevenDaysAgo = new Date();
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-  
+  const sevenDaysAgoStr = sevenDaysAgo.toISOString();
+
   const { count: recentCount, error: recentError } = await supabase
     .from('bookmarks')
     .select('*', { count: 'exact', head: true })
     .eq('user_id', userId)
-    .gte('created_at', sevenDaysAgo.toISOString());
-    
-  if (recentError) throw recentError;
-  
+    .gte('created_at', sevenDaysAgoStr);
+
+  if (recentError) {
+    console.error('Error fetching recent bookmarks count:', recentError);
+    throw recentError;
+  }
+
+  // Get bookmark counts by platform
+  const { data: platformData, error: platformError } = await supabase
+    .from('bookmarks')
+    .select('platform')
+    .eq('user_id', userId)
+    .not('platform', 'is', null);
+
+  if (platformError) {
+    console.error('Error fetching platform stats:', platformError);
+    throw platformError;
+  }
+
+  const byPlatform: Record<string, number> = {};
+  platformData.forEach(item => {
+    if (item.platform) {
+      byPlatform[item.platform] = (byPlatform[item.platform] || 0) + 1;
+    }
+  });
+
+  // Get bookmark counts by label
+  const { data: labelData, error: labelError } = await supabase
+    .from('bookmarks')
+    .select('label')
+    .eq('user_id', userId)
+    .not('label', 'is', null);
+
+  if (labelError) {
+    console.error('Error fetching label stats:', labelError);
+    throw labelError;
+  }
+
+  const byLabel: Record<string, number> = {};
+  labelData.forEach(item => {
+    if (item.label) {
+      byLabel[item.label] = (byLabel[item.label] || 0) + 1;
+    }
+  });
+
   return {
-    totalCount: totalCount || 0,
-    byPlatform,
-    byLabel,
+    totalCount: usageStats?.bookmark_count || 0,
+    folderCount: usageStats?.folder_count || 0, // Include folder count from usage stats
     recentCount: recentCount || 0,
+    byPlatform,
+    byLabel
   };
 };

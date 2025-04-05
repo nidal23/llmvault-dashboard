@@ -26,6 +26,7 @@ interface BookmarkStats {
   byPlatform: Record<string, number>;
   byLabel: Record<string, number>;
   recentCount: number;
+  folderCount?: number;
 }
 
 interface BookmarksState {
