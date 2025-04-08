@@ -1,4 +1,3 @@
-//components/settings/SettingsPanel.tsx
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,11 +26,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { X, Plus, Moon, Sun, Loader2, AlertCircle } from "lucide-react";
+import { X, Plus, Moon, Sun, Loader2, AlertCircle, Edit2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useUserSettingsStore } from "@/lib/stores/useUserSettingsStore";
 import { useAuth } from "@/lib/hooks/useAuth";
-import { Json } from "@/lib/supabase/database.types";
+import { Json, PlatformWithColor, safeParsePlatforms } from "@/lib/supabase/database.types";
 import { signOut } from "@/lib/api/auth";
 import { useSubscriptionStore } from "@/lib/stores/useSubscriptionStore";
 import { Shield, Crown, Check } from "lucide-react";
@@ -49,13 +48,11 @@ const SettingsPanel = () => {
     toggleAutoDetectPlatform 
   } = useUserSettingsStore();
 
-
   useEffect(() => {
     if (user) {
       fetchSettings(user.id);
     }
   }, [user, fetchSettings]);
-  
   
   // Local state that will be synced with the database
   const [isDarkMode, setIsDarkMode] = useState(false);
@@ -63,15 +60,29 @@ const SettingsPanel = () => {
   const [newLabel, setNewLabel] = useState("");
   const [labels, setLabels] = useState<string[]>([]);
   const [newPlatform, setNewPlatform] = useState("");
-  const [platforms, setPlatforms] = useState<string[]>([]);
+  const [newPlatformColor, setNewPlatformColor] = useState("#808080");
+  const [platforms, setPlatforms] = useState<PlatformWithColor[]>([]);
   const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
+  const [isEditPlatformOpen, setIsEditPlatformOpen] = useState(false);
+  const [editingPlatform, setEditingPlatform] = useState<PlatformWithColor | null>(null);
+  
+  // Default platform colors
+  const defaultPlatforms: PlatformWithColor[] = [
+    { name: "ChatGPT", color: "#10A37F" },
+    { name: "Claude", color: "#8C5AF2" },
+    { name: "Deepseek", color: "#0066FF" },
+    { name: "Gemini", color: "#AA5A44" },
+    { name: "Perplexity", color: "#61C7FA" }
+  ];
   
   // Helper function to safely convert Json to string array
   const parseArrayFromJson = (json: Json | null): string[] => {
     if (!json) return [];
     
     if (Array.isArray(json)) {
-      return json.filter(item => typeof item === 'string') as string[];
+      return json
+        .filter(item => item !== null && item !== undefined)
+        .map(item => String(item));
     }
     
     return [];
@@ -92,8 +103,8 @@ const SettingsPanel = () => {
       // Handle platforms with default values if null
       setPlatforms(
         settings.platforms 
-          ? parseArrayFromJson(settings.platforms) 
-          : ["ChatGPT", "Claude", "Deepseek", "Gemini"]
+          ? safeParsePlatforms(settings.platforms) 
+          : defaultPlatforms
       );
     }
   }, [settings]);
@@ -116,7 +127,6 @@ const SettingsPanel = () => {
       // Toast is shown by the hook
     } catch (error) {
       console.log('error: ', error)
-
       // Error handling is done in the hook
     }
   };
@@ -129,7 +139,6 @@ const SettingsPanel = () => {
       // Toast is shown by the hook
     } catch (error) {
       console.log('error: ', error)
-
       // Error handling is done in the hook
     }
   };
@@ -169,14 +178,20 @@ const SettingsPanel = () => {
   const handleAddPlatform = () => {
     if (!user) return;
     if (newPlatform.trim() === "") return;
-    if (platforms.includes(newPlatform.trim())) {
+    if (platforms.some(p => p.name.toLowerCase() === newPlatform.trim().toLowerCase())) {
       toast.error("This platform already exists");
       return;
     }
     
-    const updatedPlatforms = [...platforms, newPlatform.trim()];
+    const newPlatformObj: PlatformWithColor = { 
+      name: newPlatform.trim(), 
+      color: newPlatformColor 
+    };
+    
+    const updatedPlatforms = [...platforms, newPlatformObj];
     setPlatforms(updatedPlatforms);
     setNewPlatform("");
+    setNewPlatformColor("#808080"); // Reset to default gray
     
     // Save platforms immediately for better UX
     updatePlatforms(user.id, updatedPlatforms).catch(() => {
@@ -185,11 +200,33 @@ const SettingsPanel = () => {
     });
   };
   
-  const handleRemovePlatform = (platform: string) => {
+  const handleRemovePlatform = (platformName: string) => {
     if (!user) return;
     
-    const updatedPlatforms = platforms.filter((p) => p !== platform);
+    const updatedPlatforms = platforms.filter((p) => p.name !== platformName);
     setPlatforms(updatedPlatforms);
+    
+    // Save platforms immediately for better UX
+    updatePlatforms(user.id, updatedPlatforms).catch(() => {
+      // Revert on error
+      setPlatforms(platforms);
+    });
+  };
+
+  const openEditPlatform = (platform: PlatformWithColor) => {
+    setEditingPlatform({ ...platform });
+    setIsEditPlatformOpen(true);
+  };
+
+  const handleUpdatePlatform = () => {
+    if (!user || !editingPlatform) return;
+
+    const updatedPlatforms = platforms.map(p => 
+      p.name === editingPlatform.name ? editingPlatform : p
+    );
+    
+    setPlatforms(updatedPlatforms);
+    setIsEditPlatformOpen(false);
     
     // Save platforms immediately for better UX
     updatePlatforms(user.id, updatedPlatforms).catch(() => {
@@ -209,6 +246,39 @@ const SettingsPanel = () => {
     }
   };
   
+  const getBadgeStyle = (color: string) => {
+    // Extract RGB components for background
+    let r = 128, g = 128, b = 128;
+    
+    try {
+      if (color.startsWith('#') && (color.length === 4 || color.length === 7)) {
+        if (color.length === 4) {
+          // Convert #RGB to #RRGGBB
+          const r1 = color[1], g1 = color[2], b1 = color[3];
+          r = parseInt(`${r1}${r1}`, 16);
+          g = parseInt(`${g1}${g1}`, 16);
+          b = parseInt(`${b1}${b1}`, 16);
+        } else {
+          r = parseInt(color.slice(1, 3), 16);
+          g = parseInt(color.slice(3, 5), 16);
+          b = parseInt(color.slice(5, 7), 16);
+        }
+      }
+    } catch (error) {
+      console.error('Error parsing color:', error);
+    }
+    
+    // Create a semi-transparent background (20% opacity)
+    const bgColor = `rgba(${r}, ${g}, ${b}, 0.2)`;
+    
+    // Return the style object
+    return {
+      backgroundColor: bgColor,
+      color: color,
+      borderColor: `rgba(${r}, ${g}, ${b}, 0.5)`, // Add a subtle border with 50% opacity
+    };
+  };
+  
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-[500px]">
@@ -216,6 +286,7 @@ const SettingsPanel = () => {
       </div>
     );
   }
+  
   
   return (
     <div className="max-w-4xl mx-auto animate-fade-in">
@@ -459,7 +530,7 @@ const SettingsPanel = () => {
             <CardHeader>
               <CardTitle>Platform Management</CardTitle>
               <CardDescription>
-                Customize LLM platforms for categorizing your bookmarks.
+                Customize LLM platforms and their colors for categorizing your bookmarks.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -472,36 +543,67 @@ const SettingsPanel = () => {
                   )}
                   
                   {platforms.map((platform) => (
-                    <Badge key={platform} variant="secondary" className="px-3 py-1 text-sm">
-                      <span className="mr-1">{platform}</span>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-4 w-4 rounded-full ml-1 hover:bg-secondary"
-                        onClick={() => handleRemovePlatform(platform)}
-                        disabled={isLoading}
+                    <div key={platform.name} className="flex items-center">
+                      <Badge 
+                        variant="secondary" 
+                        className="px-3 py-1 text-sm flex items-center gap-1"
+                        style={getBadgeStyle(platform.color)}
                       >
-                        <X className="h-3 w-3" />
-                        <span className="sr-only">Remove {platform}</span>
-                      </Button>
-                    </Badge>
+                        <span 
+                          className="h-3 w-3 rounded-full mr-1.5" 
+                          style={{ backgroundColor: platform.color || "#808080" }}
+                        />
+                        <span>{platform.name}</span>
+                      </Badge>
+                      <div className="flex ml-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 rounded-full hover:bg-secondary"
+                          onClick={() => openEditPlatform(platform)}
+                        >
+                          <Edit2 className="h-3 w-3" />
+                          <span className="sr-only">Edit {platform.name}</span>
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 rounded-full hover:bg-secondary"
+                          onClick={() => handleRemovePlatform(platform.name)}
+                          disabled={isLoading}
+                        >
+                          <X className="h-3 w-3" />
+                          <span className="sr-only">Remove {platform.name}</span>
+                        </Button>
+                      </div>
+                    </div>
                   ))}
                 </div>
                 
                 <div className="flex gap-2">
-                  <Input
-                    placeholder="Add new platform..."
-                    value={newPlatform}
-                    onChange={(e) => setNewPlatform(e.target.value)}
-                    className="flex-1"
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        handleAddPlatform();
-                      }
-                    }}
-                    disabled={isLoading}
-                  />
+                  <div className="flex-1 flex gap-2">
+                    <Input
+                      placeholder="Add new platform..."
+                      value={newPlatform}
+                      onChange={(e) => setNewPlatform(e.target.value)}
+                      className="flex-1"
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          handleAddPlatform();
+                        }
+                      }}
+                      disabled={isLoading}
+                    />
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="color"
+                        value={newPlatformColor}
+                        onChange={(e) => setNewPlatformColor(e.target.value)}
+                        className="h-8 w-8 border-0 rounded cursor-pointer"
+                      />
+                    </div>
+                  </div>
                   <Button 
                     variant="outline" 
                     size="icon"
@@ -516,6 +618,7 @@ const SettingsPanel = () => {
             </CardContent>
           </Card>
         </TabsContent>
+
         
         <TabsContent value="account" className="mt-6">
           <Card className="glass-card">
@@ -613,6 +716,88 @@ const SettingsPanel = () => {
           </Card>
         </TabsContent>
       </Tabs>
+
+       {/* Edit Platform Dialog */}
+       <Dialog open={isEditPlatformOpen} onOpenChange={setIsEditPlatformOpen}>
+        <DialogContent className="glass-card">
+          <DialogHeader>
+            <DialogTitle>Edit Platform</DialogTitle>
+            <DialogDescription>
+              Update the platform name and color.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit-platform-name" className="text-right">
+                Name
+              </Label>
+              <Input
+                id="edit-platform-name"
+                value={editingPlatform?.name || ""}
+                onChange={(e) => setEditingPlatform(prev => 
+                  prev ? { ...prev, name: e.target.value } : prev
+                )}
+                className="col-span-3"
+              />
+            </div>
+            
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit-platform-color" className="text-right">
+                Color
+              </Label>
+              <div className="col-span-3 flex items-center gap-3">
+                <input
+                  id="edit-platform-color"
+                  type="color"
+                  value={editingPlatform?.color || "#808080"}
+                  onChange={(e) => setEditingPlatform(prev => 
+                    prev ? { ...prev, color: e.target.value } : prev
+                  )}
+                  className="h-10 w-10 border-0 rounded cursor-pointer"
+                />
+                <div
+                  className="h-8 flex-1 rounded"
+                  style={{ 
+                    backgroundColor: editingPlatform?.color || "#808080" 
+                  }}
+                ></div>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label className="text-right">Preview</Label>
+              <div className="col-span-3">
+                <Badge 
+                  variant="secondary" 
+                  className="px-3 py-1 text-sm"
+                  style={getBadgeStyle(editingPlatform?.color || "#808080")}
+                >
+                  <span 
+                    className="h-3 w-3 rounded-full mr-1.5" 
+                    style={{ 
+                      backgroundColor: editingPlatform?.color || "#808080" 
+                    }}
+                  />
+                  <span>{editingPlatform?.name || ""}</span>
+                </Badge>
+              </div>
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditPlatformOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleUpdatePlatform} 
+              disabled={isLoading || !editingPlatform?.name}
+            >
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       
       {/* Account Deletion Confirmation Dialog */}
       <Dialog open={isConfirmDeleteOpen} onOpenChange={setIsConfirmDeleteOpen}>

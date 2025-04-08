@@ -17,8 +17,8 @@ interface FoldersState {
   // Actions
   fetchFolders: (userId: string, force?: boolean) => Promise<void>;
   createFolder: (userId: string, name: string, parentId: string | null) => Promise<Folder>;
-  renameFolder: (userId: string, folderId: string, name: string) => Promise<any>;
-  moveFolder: (userId: string, folderId: string, newParentId: string | null) => Promise<any>;
+  renameFolder: (userId: string, folderId: string, name: string) => Promise<Folder>;
+  moveFolder: (userId: string, folderId: string, newParentId: string | null) => Promise<Folder>;
   deleteFolder: (userId: string, folderId: string) => Promise<void>;
 }
 

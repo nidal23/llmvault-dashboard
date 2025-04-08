@@ -321,6 +321,41 @@ export type UsageStats = Database['public']['Tables']['usage_stats']['Row'];
 export type UserSettings = Database['public']['Tables']['user_settings']['Row'];
 
 // Add additional types for UI needs
+export function safeParsePlatforms(platforms: Json | null): PlatformWithColor[] {
+  if (!platforms) return [];
+  
+  if (!Array.isArray(platforms)) return [];
+  
+  return platforms.map(item => {
+    if (typeof item === 'string') {
+      // Legacy format - string only
+      return { 
+        name: item, 
+        color: "#808080" 
+      } as PlatformWithColor;
+    } else if (item && typeof item === 'object') {
+      // Object with name and color
+      const name = 'name' in item ? String(item.name) : 'Unknown';
+      const color = 'color' in item ? String(item.color) : '#808080';
+      return { name, color } as PlatformWithColor;
+    } else {
+      // Invalid format
+      return { 
+        name: 'Unknown', 
+        color: "#808080" 
+      } as PlatformWithColor;
+    }
+  });
+}
+
+export interface PlatformWithColor {
+  name: string;
+  color: string;
+  [key: string]: Json | undefined;
+}
+
+export type PlatformJson = Json[] | { name: string; color: string }[];
+
 export interface FolderWithCount extends Folder {
   bookmarkCount?: number;
   children?: FolderWithCount[];
