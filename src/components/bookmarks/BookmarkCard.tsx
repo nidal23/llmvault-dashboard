@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, CSSProperties } from "react";
 import { 
   Copy, 
   ExternalLink, 
@@ -28,10 +28,11 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { format, formatDistanceToNow } from "date-fns";
-import { BookmarkWithFolder } from '../../lib/supabase/database.types';
+import { BookmarkWithFolder, safeParsePlatforms } from '@/lib/supabase/database.types';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useBookmarksStore } from '@/lib/stores/useBookmarksStore';
 import { useAuth } from '@/lib/hooks/useAuth';
+import { useUserSettingsStore } from '@/lib/stores/useUserSettingsStore';
 
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -42,26 +43,12 @@ interface BookmarkCardProps {
   onBookmarkChange?: () => void; // Callback for when bookmark is modified
 }
 
-const getPlatformColor = (platform: string) => {
-  switch (platform?.toLowerCase()) {
-    case "chatgpt":
-      return "bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-300";
-    case "claude":
-      return "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300";
-    case "deepseek":
-      return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300";
-    case "gemini":
-      return "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-300";
-    default:
-      return "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300";
-  }
-};
-
 const BookmarkCard = ({ bookmark, onBookmarkChange }: BookmarkCardProps) => {
   const { user } = useAuth();
   // Use our zustand stores
   const { deleteBookmark, updateBookmark } = useBookmarksStore();
   const { folders } = useFoldersStore();
+  const { settings } = useUserSettingsStore();
   
   // State for dialogs
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -86,7 +73,94 @@ const BookmarkCard = ({ bookmark, onBookmarkChange }: BookmarkCardProps) => {
     setEditNotes(bookmark.notes || "");
   }, [bookmark]);
   
-  const platformColor = getPlatformColor(bookmark.platform || '');
+  // Function to find platform color from settings
+  const getPlatformColor = (platformName: string | null): string => {
+    if (!platformName) return "#808080";
+    
+    // Default platform colors as fallback
+    const defaultColors: Record<string, string> = {
+      "chatgpt": "#10A37F",
+      "claude": "#8C5AF2",
+      "deepseek": "#0066FF", 
+      "gemini": "#AA5A44",
+      "perplexity": "#61C7FA"
+    };
+
+    // Parse platforms from settings
+    const platforms = settings?.platforms 
+      ? safeParsePlatforms(settings.platforms) 
+      : [];
+    
+    // Try to find the platform in user settings
+    const platform = platforms.find(p => 
+      p.name.toLowerCase() === platformName.toLowerCase()
+    );
+    
+    if (platform && platform.color) {
+      return platform.color;
+    }
+    
+    // Fallback to default colors if available
+    const lowerPlatform = platformName.toLowerCase();
+    if (defaultColors[lowerPlatform]) {
+      return defaultColors[lowerPlatform];
+    }
+    
+    // Default gray if no color is found
+    return "#808080";
+  };
+  
+  // Get the style for the platform badge
+  const getPlatformBadgeStyle = (platformName: string | null): CSSProperties => {
+    if (!platformName) return {};
+    
+    const color = getPlatformColor(platformName);
+    
+    // Extract RGB components for background
+    let r = 128, g = 128, b = 128;
+    
+    try {
+      if (color.startsWith('#') && (color.length === 4 || color.length === 7)) {
+        if (color.length === 4) {
+          // Convert #RGB to #RRGGBB
+          const r1 = color[1], g1 = color[2], b1 = color[3];
+          r = parseInt(`${r1}${r1}`, 16);
+          g = parseInt(`${g1}${g1}`, 16);
+          b = parseInt(`${b1}${b1}`, 16);
+        } else {
+          r = parseInt(color.slice(1, 3), 16);
+          g = parseInt(color.slice(3, 5), 16);
+          b = parseInt(color.slice(5, 7), 16);
+        }
+      }
+    } catch (error) {
+      console.error('Error parsing color:', error);
+    }
+    
+    // Create a semi-transparent background (20% opacity)
+    const bgColor = `rgba(${r}, ${g}, ${b}, 0.2)`;
+    
+    // For text, use the original color
+    return {
+      backgroundColor: bgColor,
+      color: color,
+      borderColor: `rgba(${r}, ${g}, ${b}, 0.5)`, // Add a subtle border with 50% opacity
+    };
+  };
+  
+  // Get all available platforms for the dropdown
+  const getAvailablePlatforms = () => {
+    const platforms = settings?.platforms 
+      ? safeParsePlatforms(settings.platforms) 
+      : [];
+    
+    const platformNames = platforms.map(p => p.name);
+    
+    return platformNames.length > 0 
+      ? platformNames 
+      : ["ChatGPT", "Claude", "Deepseek", "Gemini", "Perplexity", "Other"];
+  };
+  
   const createdDate = bookmark.created_at ? new Date(bookmark.created_at) : new Date();
   const timeAgo = formatDistanceToNow(createdDate, { addSuffix: true });
 
@@ -181,8 +255,18 @@ const BookmarkCard = ({ bookmark, onBookmarkChange }: BookmarkCardProps) => {
             <div className="flex-1 min-w-0 mr-2">
               <div className="flex items-center gap-2 mb-1">
                 {bookmark.platform && (
-                  <Badge variant="outline" className={`${platformColor} border-0`}>
-                    {bookmark.platform}
+                  <Badge 
+                    variant="outline" 
+                    className="border-0 flex items-center"
+                    style={getPlatformBadgeStyle(bookmark.platform)}
+                  >
+                    <span 
+                      className="h-2 w-2 rounded-full mr-1" 
+                      style={{ 
+                        backgroundColor: getPlatformColor(bookmark.platform) 
+                      }}
+                    />
+                    <span>{bookmark.platform}</span>
                   </Badge>
                 )}
                 {bookmark.label && (
@@ -309,7 +393,7 @@ const BookmarkCard = ({ bookmark, onBookmarkChange }: BookmarkCardProps) => {
         </DialogContent>
       </Dialog>
       
-      {/* Edit dialog with native select elements for stability */}
+      {/* Edit dialog with platform color selection */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="glass-card">
           <DialogHeader>
@@ -376,12 +460,25 @@ const BookmarkCard = ({ bookmark, onBookmarkChange }: BookmarkCardProps) => {
                   className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm"
                 >
                   <option value="">None</option>
-                  <option value="ChatGPT">ChatGPT</option>
-                  <option value="Claude">Claude</option>
-                  <option value="Gemini">Gemini</option>
-                  <option value="Deepseek">Deepseek</option>
-                  <option value="Other">Other</option>
+                  {getAvailablePlatforms().map(platform => (
+                    <option key={platform} value={platform}>
+                      {platform}
+                    </option>
+                  ))}
                 </select>
+                
+                {editPlatform && (
+                  <div className="mt-2 flex items-center">
+                    <span className="text-xs text-muted-foreground mr-2">Platform color:</span>
+                    <div 
+                      className="h-4 w-4 rounded-full inline-block mr-2"
+                      style={{ 
+                        backgroundColor: getPlatformColor(editPlatform) 
+                      }}
+                    ></div>
+                    <span className="text-xs">{getPlatformColor(editPlatform)}</span>
+                  </div>
+                )}
               </div>
             </div>
             

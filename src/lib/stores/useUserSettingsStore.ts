@@ -1,145 +1,235 @@
-// src/lib/stores/useUserSettingsStore.ts
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
 import { supabase } from '../supabase/client';
-import { UserSettings } from '../supabase/database.types';
-import { toast } from 'react-hot-toast';
+import { toast } from 'sonner';
+import { UserSettings, PlatformWithColor, Json } from '../supabase/database.types';
 
-interface UserSettingsState {
-  // Data
+type UserSettingsState = {
   settings: UserSettings | null;
-  
-  // UI state
   isLoading: boolean;
   error: Error | null;
-  
-  // Actions
   fetchSettings: (userId: string) => Promise<void>;
-  updateSettings: (userId: string, updates: Partial<UserSettings>) => Promise<UserSettings | null>;
-  updateTheme: (userId: string, theme: 'light' | 'dark' | 'system') => Promise<UserSettings | null>;
-  updateDefaultLabels: (userId: string, labels: string[]) => Promise<UserSettings | null>;
-  updatePlatforms: (userId: string, platforms: string[]) => Promise<UserSettings | null>;
-  toggleAutoDetectPlatform: (userId: string) => Promise<UserSettings | null>;
-}
+  updateTheme: (userId: string, theme: string) => Promise<void>;
+  updateDefaultLabels: (userId: string, labels: string[]) => Promise<void>;
+  updatePlatforms: (userId: string, platforms: PlatformWithColor[]) => Promise<void>;
+  toggleAutoDetectPlatform: (userId: string) => Promise<void>;
+};
 
-export const useUserSettingsStore = create<UserSettingsState>()(
-  persist(
-    (set, get) => ({
-      // Initial state
-      settings: null,
-      isLoading: false,
-      error: null,
+export const useUserSettingsStore = create<UserSettingsState>((set, get) => ({
+  settings: null,
+  isLoading: false,
+  error: null,
+
+  fetchSettings: async (userId: string) => {
+    try {
+      set({ isLoading: true, error: null });
       
-      // Fetch user settings
-      fetchSettings: async (userId: string) => {
-        if (!userId) {
-          set({ settings: null, isLoading: false });
-          return;
-        }
+      const { data, error } = await supabase
+        .from('user_settings')
+        .select('*')
+        .eq('user_id', userId)
+        .single();
         
-        set({ isLoading: true, error: null });
+      if (error) throw error;
+      
+      // If no settings found, create default settings
+      if (!data) {
+        const defaultPlatforms = [
+          { name: "ChatGPT", color: "#10A37F" },
+          { name: "Claude", color: "#8C5AF2" },
+          { name: "Deepseek", color: "#0066FF" },
+          { name: "Gemini", color: "#AA5A44" },
+          { name: "Perplexity", color: "#61C7FA" }
+        ];
         
-        try {
-          const { data, error } = await supabase
-            .from('user_settings')
-            .select('*')
-            .eq('user_id', userId)
-            .single();
+        const defaultSettings = {
+          user_id: userId,
+          theme: 'light',
+          auto_detect_platform: true,
+          default_labels: [] as Json,
+          platforms: defaultPlatforms as unknown as Json
+        };
+        
+        const { data: newSettings, error: createError } = await supabase
+          .from('user_settings')
+          .insert(defaultSettings)
+          .select()
+          .single();
           
-          if (error) throw error;
+        if (createError) throw createError;
+        
+        set({ settings: newSettings, isLoading: false });
+      } else {
+        // Convert legacy platforms format if needed
+        const updatedData = { ...data };
+        
+        if (data.platforms && Array.isArray(data.platforms)) {
+          // Use a more specific type without requiring JsonValue
+          const platforms = data.platforms as (string | number | boolean | object)[];
           
-          // Initialize default platforms if not set
-          if (!data.platforms) {
-            const defaultPlatforms = ["ChatGPT", "Claude", "Deepseek", "Gemini"];
-            const { data: updatedData, error: updateError } = await supabase
+          // Check if the first item is a string (legacy format)
+          if (platforms.length > 0 && typeof platforms[0] === 'string') {
+            const defaultColors: Record<string, string> = {
+              "chatgpt": "#10A37F",
+              "claude": "#8C5AF2",
+              "deepseek": "#0066FF", 
+              "gemini": "#AA5A44",
+              "perplexity": "#61C7FA"
+            };
+            
+            // Convert to new format
+            const convertedPlatforms = platforms.map((name) => {
+              const nameStr = typeof name === 'string' ? name : String(name);
+              const lowerName = nameStr.toLowerCase();
+              const color = defaultColors[lowerName] || "#808080";
+              return { name: nameStr, color };
+            }) as unknown as Json;
+            
+            // Update the platforms in the database
+            const { error: updateError } = await supabase
               .from('user_settings')
-              .update({ platforms: defaultPlatforms })
-              .eq('user_id', userId)
-              .select()
-              .single();
+              .update({ platforms: convertedPlatforms })
+              .eq('user_id', userId);
               
-            if (updateError) throw updateError;
-            set({ settings: updatedData, isLoading: false });
-          } else {
-            set({ settings: data, isLoading: false });
+            if (!updateError) {
+              updatedData.platforms = convertedPlatforms;
+            }
           }
-        } catch (err) {
-          console.error('Error fetching user settings:', err);
-          set({ 
-            error: err instanceof Error ? err : new Error('Failed to fetch user settings'),
-            isLoading: false
-          });
-          toast.error('Failed to load user settings');
-        }
-      },
-      
-      // Update user settings with optimistic updates
-      updateSettings: async (userId: string, updates: Partial<UserSettings>) => {
-        if (!userId) return null;
-        
-        // Store original settings for rollback
-        const originalSettings = get().settings;
-        
-        // Apply optimistic update
-        if (originalSettings) {
-          set({ settings: { ...originalSettings, ...updates } });
         }
         
-        try {
-          // Pass a function that returns the Promise
-          const { data, error } = await supabase
-              .from('user_settings')
-              .update(updates)
-              .eq('user_id', userId)
-              .select()
-              .single();
-
-        
-          if (error) throw error;
-          
-          set({ settings: data });
-          toast.success('Settings updated successfully');
-          return data;
-        } catch (err) {
-          console.error('Error updating user settings:', err);
-          
-          // Rollback on error
-          set({ settings: originalSettings });
-          toast.error('Failed to update settings');
-          return null;
-        }
-      },
-      
-      // Update theme with optimistic update
-      updateTheme: async (userId: string, theme: 'light' | 'dark' | 'system') => {
-        return get().updateSettings(userId, { theme });
-      },
-      
-      // Update default labels with optimistic update
-      updateDefaultLabels: async (userId: string, labels: string[]) => {
-        return get().updateSettings(userId, { default_labels: labels });
-      },
-      
-      // Update platforms with optimistic update
-      updatePlatforms: async (userId: string, platforms: string[]) => {
-        return get().updateSettings(userId, { platforms });
-      },
-      
-      // Toggle platform auto-detection with optimistic update
-      toggleAutoDetectPlatform: async (userId: string) => {
-        const settings = get().settings;
-        if (!settings) return null;
-        
-        return get().updateSettings(userId, { 
-          auto_detect_platform: !settings.auto_detect_platform 
-        });
-      },
-    }),
-    {
-      name: 'user-settings-storage',
-      partialize: (state) => ({ 
-        settings: state.settings 
-      }),
+        set({ settings: updatedData, isLoading: false });
+      }
+    } catch (error) {
+      console.error('Error fetching settings:', error);
+      set({ error: error as Error, isLoading: false });
+      toast.error('Failed to load settings');
     }
-  )
-);
+  },
+
+  updateTheme: async (userId: string, theme: string) => {
+    try {
+      set({ isLoading: true, error: null });
+      
+      const { error } = await supabase
+        .from('user_settings')
+        .update({ theme })
+        .eq('user_id', userId);
+        
+      if (error) throw error;
+      
+      // Update local state
+      set((state) => {
+        if (!state.settings) return { isLoading: false };
+        return { 
+          settings: { 
+            ...state.settings, 
+            theme 
+          }, 
+          isLoading: false 
+        };
+      });
+      
+      toast.success('Theme updated successfully');
+    } catch (error) {
+      console.error('Error updating theme:', error);
+      set({ error: error as Error, isLoading: false });
+      toast.error('Failed to update theme');
+    }
+  },
+
+  updateDefaultLabels: async (userId: string, default_labels: string[]) => {
+    try {
+      set({ isLoading: true, error: null });
+      
+      const { error } = await supabase
+        .from('user_settings')
+        .update({ default_labels: default_labels as unknown as Json })
+        .eq('user_id', userId);
+        
+      if (error) throw error;
+      
+      // Update local state
+      set((state) => {
+        if (!state.settings) return { isLoading: false };
+        return { 
+          settings: { 
+            ...state.settings, 
+            default_labels: default_labels as unknown as Json
+          }, 
+          isLoading: false 
+        };
+      });
+      
+      toast.success('Labels updated successfully');
+    } catch (error) {
+      console.error('Error updating labels:', error);
+      set({ error: error as Error, isLoading: false });
+      toast.error('Failed to update labels');
+    }
+  },
+
+  updatePlatforms: async (userId: string, platforms: PlatformWithColor[]) => {
+    try {
+      set({ isLoading: true, error: null });
+      
+      const { error } = await supabase
+        .from('user_settings')
+        .update({ platforms: platforms as unknown as Json })
+        .eq('user_id', userId);
+        
+      if (error) throw error;
+      
+      // Update local state
+      set((state) => {
+        if (!state.settings) return { isLoading: false };
+        return { 
+          settings: { 
+            ...state.settings, 
+            platforms: platforms as unknown as Json
+          }, 
+          isLoading: false 
+        };
+      });
+      
+      toast.success('Platforms updated successfully');
+    } catch (error) {
+      console.error('Error updating platforms:', error);
+      set({ error: error as Error, isLoading: false });
+      toast.error('Failed to update platforms');
+    }
+  },
+
+  toggleAutoDetectPlatform: async (userId: string) => {
+    try {
+      set({ isLoading: true, error: null });
+      
+      // Toggle the current value
+      const currentValue = get().settings?.auto_detect_platform;
+      const newValue = currentValue === false; // Default is true if null
+      
+      const { error } = await supabase
+        .from('user_settings')
+        .update({ auto_detect_platform: newValue })
+        .eq('user_id', userId);
+        
+      if (error) throw error;
+      
+      // Update local state
+      set((state) => {
+        if (!state.settings) return { isLoading: false };
+        return { 
+          settings: { 
+            ...state.settings, 
+            auto_detect_platform: newValue 
+          }, 
+          isLoading: false 
+        };
+      });
+      
+      toast.success(`Platform auto-detection ${newValue ? 'enabled' : 'disabled'}`);
+    } catch (error) {
+      console.error('Error updating auto-detect setting:', error);
+      set({ error: error as Error, isLoading: false });
+      toast.error('Failed to update setting');
+    }
+  }
+}));
