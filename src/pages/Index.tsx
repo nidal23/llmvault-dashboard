@@ -1,7 +1,7 @@
 //pages/index.tsx
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Bookmark, ChevronRight, ExternalLink } from "lucide-react";
+import { Bookmark, ChevronRight, ExternalLink, Cpu, FolderSearch, BrainCircuit, Clock, ZapIcon, Moon, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import GoogleAuthButton from "@/components/auth/GoogleAuthButton";
 import { useAuth } from "../lib/hooks/useAuth";
@@ -11,9 +11,21 @@ const Index = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-
-
-  console.log('user in index.ts: ', user);
+  const [isDarkMode, setIsDarkMode] = useState(true); // Default to dark mode
+  
+  // Toggle theme function
+  const toggleTheme = () => {
+    setIsDarkMode(prev => !prev);
+  };
+  
+  // Apply theme effect
+  useEffect(() => {
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [isDarkMode]);
   
   const handleAuthSuccess = () => {
     setIsLoggedIn(true);
@@ -30,12 +42,6 @@ const Index = () => {
     }
   }, [user]);
 
-  const scrollToPricing = (e: React.MouseEvent) => {
-    e.preventDefault();
-    const pricingSection = document.getElementById('pricing');
-    pricingSection?.scrollIntoView({ behavior: 'smooth' });
-  };
-
   const scrollToFeatures = (e: React.MouseEvent) => {
     e.preventDefault();
     const featureSection = document.getElementById('features');
@@ -48,8 +54,14 @@ const Index = () => {
     stepsSection?.scrollIntoView({ behavior: 'smooth' });
   };
 
+  const scrollToExtension = (e: React.MouseEvent) => {
+    e.preventDefault();
+    const extensionSection = document.getElementById('extension');
+    extensionSection?.scrollIntoView({ behavior: 'smooth' });
+  };
+
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col dark:bg-slate-950 dark:text-white transition-colors">
         <header className="sticky top-0 z-50 w-full border-b bg-background/80 backdrop-blur-md">
             <div className="container flex h-16 items-center justify-between px-2">
             <div className="flex items-center gap-2">
@@ -57,15 +69,26 @@ const Index = () => {
                 <span className="font-semibold text-xl">ChatStack</span>
             </div>
             <nav className="hidden md:flex gap-6 items-center">
-                <a href="#features" onClick={scrollToFeatures}  className="text-muted-foreground hover:text-foreground transition-colors">
+                <a href="#features" onClick={scrollToFeatures} className="text-muted-foreground hover:text-foreground transition-colors">
                 Features
                 </a>
-                <a href="#how-it-works" onClick={scrollToSteps}  className="text-muted-foreground hover:text-foreground transition-colors">
+                <a href="#how-it-works" onClick={scrollToSteps} className="text-muted-foreground hover:text-foreground transition-colors">
                 How it works
                 </a>
-                <a href="#pricing" onClick={scrollToPricing} className="text-muted-foreground hover:text-foreground transition-colors">
-                Pricing
+                <a href="#extension" onClick={scrollToExtension} className="text-muted-foreground hover:text-foreground transition-colors">
+                Get Extension
                 </a>
+                <button 
+                  onClick={toggleTheme} 
+                  className="p-2 rounded-full bg-muted/50 hover:bg-muted transition-colors"
+                  aria-label="Toggle theme"
+                >
+                  {isDarkMode ? (
+                    <Sun className="h-5 w-5" />
+                  ) : (
+                    <Moon className="h-5 w-5" />
+                  )}
+                </button>
                 {isLoggedIn ? (
                     <Button className="apple-button" onClick={() => navigate("/dashboard")}>
                         Go to Dashboard
@@ -74,7 +97,18 @@ const Index = () => {
                     <GoogleAuthButton onSuccess={handleAuthSuccess} />
                 )}
             </nav>
-            <div className="md:hidden">
+            <div className="md:hidden flex items-center gap-2">
+                <button 
+                  onClick={toggleTheme} 
+                  className="p-2 rounded-full bg-muted/50 hover:bg-muted transition-colors"
+                  aria-label="Toggle theme"
+                >
+                  {isDarkMode ? (
+                    <Sun className="h-5 w-5" />
+                  ) : (
+                    <Moon className="h-5 w-5" />
+                  )}
+                </button>
                 {isLoggedIn ? (
                 <Button className="apple-button" onClick={() => navigate("/dashboard")}>
                     Dashboard
@@ -92,22 +126,22 @@ const Index = () => {
           <div className="flex flex-col md:flex-row items-center">
             <div className="md:w-1/2 md:pr-12 text-center md:text-left animate-fade-in">
               <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight">
-                Organize your AI conversations
+                Find your AI genius, <span className="text-primary">when you need it</span>
               </h1>
               <p className="mt-6 text-lg text-muted-foreground">
-              ChatStack helps you bookmark, organize, and retrieve your most valuable LLM conversations from ChatGPT, Claude, and more.
+                Stop losing your brilliant AI conversations in the noise. ChatStack helps you organize and retrieve valuable insights from ChatGPT, Claude, and other LLMs — so you can focus on getting things done.
               </p>
               <div className="mt-10 flex flex-col sm:flex-row gap-4 justify-center md:justify-start">
                 {isLoggedIn ? (
                   <Button className="apple-button" size="lg" onClick={() => navigate("/dashboard")}>
-                    Go to Dashboard
+                    Build Your Stack
                     <ChevronRight className="ml-2 h-4 w-4" />
                   </Button>
                 ) : (
-                  <GoogleAuthButton onSuccess={handleAuthSuccess} />
+                  <GoogleAuthButton onSuccess={handleAuthSuccess} variant="cta" />
                 )}
-                <Button variant="outline" size="lg">
-                  Learn More
+                <Button variant="outline" size="lg" onClick={scrollToExtension}>
+                  Install Extension
                   <ExternalLink className="ml-2 h-4 w-4" />
                 </Button>
               </div>
@@ -128,38 +162,38 @@ const Index = () => {
         <section id="features" className="py-20 bg-muted/50">
           <div className="px-4 sm:px-6 md:px-8 lg:px-16 max-w-7xl mx-auto">
             <div className="text-center mb-16 animate-fade-in">
-              <h2 className="text-3xl sm:text-4xl font-bold">Everything you need to stay organized</h2>
+              <h2 className="text-3xl sm:text-4xl font-bold">Never lose your AI wisdom again</h2>
               <p className="mt-4 text-lg text-muted-foreground max-w-2xl mx-auto">
-                ChatStack gives you powerful tools to manage your AI conversations across different platforms.
+                ChatStack helps you organize your AI conversations so you can quickly find exactly what you need, when you need it.
               </p>
             </div>
             
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
               {[
                 {
-                  title: "Unified Bookmarks",
-                  description: "Save conversations from ChatGPT, Claude, Deepseek, and other LLM platforms in one place.",
-                  icon: "🔖",
+                  title: "Fast Access",
+                  description: "Instantly find the right conversation when you need it most, without scrolling through hundreds of chats.",
+                  icon: <Clock className="w-8 h-8 text-primary" />,
                 },
                 {
-                  title: "Folder Organization",
-                  description: "Create nested folders to organize conversations by project, topic, or any way you choose.",
-                  icon: "📁",
+                  title: "Task-Focused",
+                  description: "Organize conversations by projects, tasks or topics to keep your workflow efficient and your mind clear.",
+                  icon: <FolderSearch className="w-8 h-8 text-primary" />,
                 },
                 {
-                  title: "Smart Search",
-                  description: "Quickly find the conversations you need with full-text search and filtering.",
-                  icon: "🔍",
+                  title: "Multi-AI Support",
+                  description: "One unified place for all your AI assistants: ChatGPT, Claude, Deepseek, and more.",
+                  icon: <BrainCircuit className="w-8 h-8 text-primary" />,
                 },
                 {
-                  title: "Labels & Tags",
-                  description: "Add custom labels to categorize your conversations for easier management.",
-                  icon: "🏷️",
+                  title: "Context Retention",
+                  description: "Add notes to your bookmarks to remember why a particular conversation was valuable to you.",
+                  icon: <Cpu className="w-8 h-8 text-primary" />,
                 },
                 {
-                  title: "Cross Platform",
-                  description: "Access your conversations from any device with our web dashboard and browser extension.",
-                  icon: "🔄",
+                  title: "Productivity Boost",
+                  description: "Transform how you use AI from occasional helper to integrated productivity system.",
+                  icon: <ZapIcon className="w-8 h-8 text-primary" />,
                 },
               ].map((feature, index) => (
                 <div 
@@ -167,7 +201,7 @@ const Index = () => {
                   className="apple-card p-6 flex flex-col items-center text-center animate-fade-in"
                   style={{ animationDelay: `${index * 100}ms` }}
                 >
-                  <div className="text-4xl mb-4">{feature.icon}</div>
+                  <div className="mb-4">{feature.icon}</div>
                   <h3 className="text-xl font-medium mb-2">{feature.title}</h3>
                   <p className="text-muted-foreground">{feature.description}</p>
                 </div>
@@ -181,7 +215,7 @@ const Index = () => {
           <div className="text-center mb-16 animate-fade-in">
             <h2 className="text-3xl sm:text-4xl font-bold">How It Works</h2>
             <p className="mt-4 text-lg text-muted-foreground max-w-2xl mx-auto">
-              ChatStack is designed to work seamlessly with your existing workflow.
+              ChatStack integrates seamlessly into your AI workflow in just three simple steps.
             </p>
           </div>
           
@@ -190,17 +224,17 @@ const Index = () => {
               {
                 step: "1",
                 title: "Install the Extension",
-                description: "Add our browser extension and connect it to your account.",
+                description: "Add our browser extension to Chrome with just one click.",
               },
               {
                 step: "2",
-                title: "Bookmark Conversations",
-                description: "Save important AI chats with one click from any platform.",
+                title: "Save Valuable Conversations",
+                description: "When you find an AI chat worth keeping, save it with a single click.",
               },
               {
                 step: "3",
-                title: "Organize & Access",
-                description: "Manage your conversations and access them from anywhere.",
+                title: "Find It When You Need It",
+                description: "Organize, tag, and easily retrieve your AI wisdom exactly when you need it.",
               },
             ].map((step, index) => (
               <div 
@@ -218,119 +252,126 @@ const Index = () => {
           </div>
           
           <div className="mt-16 text-center">
-            {!isLoggedIn && (
-              <GoogleAuthButton onSuccess={handleAuthSuccess} />
-            )}
-            {isLoggedIn && (
-              <Button className="apple-button" size="lg" onClick={() => navigate("/dashboard")}>
-                Go to Dashboard
-                <ChevronRight className="ml-2 h-4 w-4" />
-              </Button>
-            )}
+            <p className="text-lg font-medium mb-4">Ready to stack your chats?</p>
+            <div className="flex justify-center">
+              {!isLoggedIn ? (
+                <GoogleAuthButton onSuccess={handleAuthSuccess} variant="cta" />
+              ) : (
+                <Button className="apple-button" size="lg" onClick={() => navigate("/dashboard")}>
+                  Build Your Stack
+                  <ChevronRight className="ml-2 h-4 w-4" />
+                </Button>
+              )}
+            </div>
           </div>
         </section>
         
-        {/* Pricing Section */}
-        <section id="pricing" className="py-20 bg-muted/50">
+        {/* Chrome Extension Section */}
+        <section id="extension" className="py-20 bg-muted/50">
           <div className="px-4 sm:px-6 md:px-8 lg:px-16 max-w-7xl mx-auto">
             <div className="text-center mb-16 animate-fade-in">
-              <h2 className="text-3xl sm:text-4xl font-bold">Simple, Transparent Pricing</h2>
+              <h2 className="text-3xl sm:text-4xl font-bold">Get the ChatStack Extension</h2>
               <p className="mt-4 text-lg text-muted-foreground max-w-2xl mx-auto">
-                Choose the plan that fits your needs. Start free, upgrade when you need more.
+                The free ChatStack Chrome extension is the key to organizing your AI conversations.
               </p>
             </div>
             
-            <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-              {/* Free Tier */}
-              <div className="apple-card p-6 flex flex-col h-full animate-fade-in">
-                <div className="mb-6">
-                  <h3 className="text-2xl font-semibold">Free Tier</h3>
-                  <p className="text-muted-foreground mt-2">Basic features for personal use</p>
-                  <div className="mt-4">
-                    <span className="text-3xl font-bold">$0</span>
-                    <span className="text-muted-foreground ml-2">forever</span>
+            <div className="flex flex-col md:flex-row items-center justify-center gap-12 max-w-4xl mx-auto">
+              <div className="md:w-1/2 flex justify-center">
+                <div className="apple-card p-6 w-full max-w-md animate-fade-in">
+                  <div className="aspect-video bg-card flex items-center justify-center rounded-lg mb-6 overflow-hidden">
+                    <img 
+                      src="https://placehold.co/600x400/3b82f6/ffffff?text=Chrome+Extension" 
+                      alt="ChatStack Chrome Extension" 
+                      className="w-full h-auto"
+                    />
                   </div>
+                  
+                  <h3 className="text-2xl font-semibold mb-4 text-center">Chrome Extension</h3>
+                  
+                  <ul className="space-y-3 mb-6">
+                    <li className="flex gap-2">
+                      <div className="text-primary">✓</div>
+                      <span>One-click saving from any LLM platform</span>
+                    </li>
+                    <li className="flex gap-2">
+                      <div className="text-primary">✓</div>
+                      <span>Auto-detection of AI platform</span>
+                    </li>
+                    <li className="flex gap-2">
+                      <div className="text-primary">✓</div>
+                      <span>Add notes and labels while saving</span>
+                    </li>
+                    <li className="flex gap-2">
+                      <div className="text-primary">✓</div>
+                      <span>Organize into custom folders</span>
+                    </li>
+                  </ul>
+                  
+                  <Button className="apple-button w-full" size="lg">
+                    Coming Soon to Chrome Store
+                  </Button>
                 </div>
-                
-                <ul className="space-y-3 mb-8 flex-grow">
-                  <li className="flex gap-2">
-                    <div className="text-primary">✓</div>
-                    <span>Core functionality: Basic folder structure (limited to 5 folders)</span>
-                  </li>
-                  <li className="flex gap-2">
-                    <div className="text-primary">✓</div>
-                    <span>Limited chat saves: Up to 30 saved chat URLs</span>
-                  </li>
-                  <li className="flex gap-2">
-                    <div className="text-primary">✓</div>
-                    <span>Basic labeling: Standard label options</span>
-                  </li>
-                  <li className="flex gap-2">
-                    <div className="text-primary">✓</div>
-                    <span>Manual URL saving: Context menu and popup functionality</span>
-                  </li>
-                </ul>
-                
-                {isLoggedIn ? (
-                  <Button className="mt-auto" onClick={() => navigate("/dashboard")}>Go to Dashboard</Button>
-                ) : (
-                  <GoogleAuthButton onSuccess={handleAuthSuccess} />
-                )}
               </div>
               
-              {/* Premium Tier */}
-              <div className="apple-card p-6 border-primary flex flex-col h-full animate-fade-in">
-                <div className="mb-6">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-2xl font-semibold">Premium Tier</h3>
-                    <div className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
-                      Recommended
-                    </div>
+              <div className="md:w-1/2 flex flex-col max-w-md space-y-6 animate-fade-in">
+                <div className="flex gap-4 items-start">
+                  <div className="w-12 h-12 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                    <ZapIcon className="w-6 h-6" />
                   </div>
-                  <p className="text-muted-foreground mt-2">Advanced features for power users</p>
-                  <div className="mt-4">
-                    <span className="text-3xl font-bold">$3.99</span>
-                    <span className="text-muted-foreground ml-2">/ month</span>
-                    <p className="text-sm text-muted-foreground mt-1">or $39.99/year (20% savings)</p>
+                  <div>
+                    <h4 className="text-lg font-medium mb-1">Seamless Integration</h4>
+                    <p className="text-muted-foreground">Works with all major AI platforms without disrupting your workflow.</p>
                   </div>
                 </div>
                 
-                <ul className="space-y-3 mb-8 flex-grow">
-                  <li className="flex gap-2">
-                    <div className="text-primary">✓</div>
-                    <span>Unlimited folders: Full hierarchical organization</span>
-                  </li>
-                  <li className="flex gap-2">
-                    <div className="text-primary">✓</div>
-                    <span>Unlimited chat saves: No restrictions</span>
-                  </li>
-                  <li className="flex gap-2">
-                    <div className="text-primary">✓</div>
-                    <span>Advanced labeling: Custom label creation and management</span>
-                  </li>
-                  <li className="flex gap-2">
-                    <div className="text-primary">✓</div>
-                    <span>Notes and context: Ability to add detailed notes to each chat</span>
-                  </li>
-                  <li className="flex gap-2">
-                    <div className="text-primary">✓</div>
-                    <span>Search functionality: Advanced search across all saved content</span>
-                  </li>
-                  <li className="flex gap-2">
-                    <div className="text-primary">✓</div>
-                    <span>Cross-device sync: Seamless experience across multiple devices</span>
-                  </li>
-                  <li className="flex gap-2">
-                    <div className="text-primary">✓</div>
-                    <span>Import/export: Data backup and restoration</span>
-                  </li>
-                </ul>
+                <div className="flex gap-4 items-start">
+                  <div className="w-12 h-12 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                    <Clock className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h4 className="text-lg font-medium mb-1">Save Time</h4>
+                    <p className="text-muted-foreground">No more scrolling through endless conversation history to find what you need.</p>
+                  </div>
+                </div>
                 
-                <Button className="apple-button mt-auto" onClick={() => navigate(isLoggedIn ? "/settings" : "/signup")}>
-                  {isLoggedIn ? "Upgrade Now" : "Subscribe Now"}
-                </Button>
+                <div className="flex gap-4 items-start">
+                  <div className="w-12 h-12 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                    <BrainCircuit className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h4 className="text-lg font-medium mb-1">Amplify Your AI Use</h4>
+                    <p className="text-muted-foreground">Transform how you interact with AI by building your personal knowledge database.</p>
+                  </div>
+                </div>
+                
+                <div className="flex gap-4 items-start">
+                  <div className="w-12 h-12 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                    <FolderSearch className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h4 className="text-lg font-medium mb-1">Complete Access</h4>
+                    <p className="text-muted-foreground">Use the web dashboard to manage all your saved conversations from any device.</p>
+                  </div>
+                </div>
               </div>
             </div>
+            
+            <div className="mt-16 text-center">
+              <p className="text-lg font-medium mb-4">What's in your chat stack today?</p>
+              <p className="text-sm text-muted-foreground mb-6">From vibe coders to PhD researchers to insomnia-driven entrepreneurs — we've got you covered.</p>
+              <div className="flex justify-center">
+                {!isLoggedIn ? (
+                  <GoogleAuthButton onSuccess={handleAuthSuccess} variant="cta" />
+                ) : (
+                  <Button className="apple-button" size="lg" onClick={() => navigate("/dashboard")}>
+                    Build Your Stack
+                    <ChevronRight className="ml-2 h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+            </div>
+
           </div>
         </section>
       </main>

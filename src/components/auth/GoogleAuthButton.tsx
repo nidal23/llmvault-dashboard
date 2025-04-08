@@ -6,23 +6,24 @@ import { signInWithGoogle } from "@/lib/api/auth";
 type GoogleAuthButtonProps = {
   onSuccess?: () => void;
   onError?: (error: Error) => void;
+  variant?: "default" | "cta";
 };
 
-const GoogleAuthButton = ({ onError }: GoogleAuthButtonProps) => {
+const GoogleAuthButton = ({ onSuccess, onError, variant = "default" }: GoogleAuthButtonProps) => {
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSignIn = async () => {
-    console.log('got clicked on')
+    console.log('got clicked on');
     setIsLoading(true);
     
     try {
       // Call your authentication function
       await signInWithGoogle();
       
-      // Show success notification
-      // toast.success("Successfully signed in!");
-      
       // Call the onSuccess callback if provided
+      if (onSuccess) {
+        onSuccess();
+      }
     } catch (error) {
       console.error('Sign in failed:', error);
       
@@ -39,11 +40,16 @@ const GoogleAuthButton = ({ onError }: GoogleAuthButtonProps) => {
     }
   };
 
+  // Define button classes based on variant
+  const buttonClasses = variant === "cta" 
+    ? "flex items-center justify-center px-2 gap-2 apple-button" 
+    : "flex items-center justify-center px-2 gap-2 neo-button";
+
   return (
     <Button 
       onClick={handleSignIn} 
       disabled={isLoading} 
-      className="flex items-center justify-center px-2 gap-2 neo-button"
+      className={buttonClasses}
       size="lg"
     >
       {isLoading ? (
@@ -68,7 +74,7 @@ const GoogleAuthButton = ({ onError }: GoogleAuthButtonProps) => {
               fill="#EA4335"
             />
           </svg>
-          Sign in
+          Sign in with Google
         </>
       )}
     </Button>
