@@ -26,33 +26,77 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { X, Plus, Moon, Sun, Loader2, AlertCircle, Edit2 } from "lucide-react";
+import { 
+  X, 
+  Plus, 
+  Moon, 
+  Sun, 
+  Loader2, 
+  AlertCircle, 
+  Edit2, 
+  User,
+  Save,
+  CheckCircle2,
+  CircleUser,
+  AtSign
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useUserSettingsStore } from "@/lib/stores/useUserSettingsStore";
+import { useProfileStore } from "@/lib/stores/useProfileStore";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { Json, PlatformWithColor, safeParsePlatforms } from "@/lib/supabase/database.types";
 import { signOut } from "@/lib/api/auth";
+import { getAvatarOptions } from "@/lib/api/profiles";
 import { useSubscriptionStore } from "@/lib/stores/useSubscriptionStore";
 import { Shield, Crown, Check } from "lucide-react";
 
 const SettingsPanel = () => {
-  const { user, profile } = useAuth();
+  const { user } = useAuth();
   const { subscription, tier, isActive } = useSubscriptionStore();
   const { 
     settings, 
-    isLoading,
+    isLoading: isLoadingSettings,
     fetchSettings,
     updateTheme, 
     updateDefaultLabels,
     updatePlatforms,
     toggleAutoDetectPlatform 
   } = useUserSettingsStore();
+  
+  const {
+    profile,
+    isLoading: isLoadingProfile,
+    isSaving: isSavingProfile,
+    fetchProfile,
+    updateProfile
+  } = useProfileStore();
 
+  // Profile editing state
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [username, setUsername] = useState("");
+  const [fullName, setFullName] = useState("");
+  const [selectedAvatar, setSelectedAvatar] = useState("");
+  const [showAvatarSelector, setShowAvatarSelector] = useState(false);
+  const [avatarOptions] = useState(getAvatarOptions());
+
+  console.log('avatar options:', avatarOptions)
+
+  // Load data when component mounts
   useEffect(() => {
     if (user) {
       fetchSettings(user.id);
+      fetchProfile(user.id);
     }
-  }, [user, fetchSettings]);
+  }, [user, fetchSettings, fetchProfile]);
+  
+  // Initialize profile form when profile data is available
+  useEffect(() => {
+    if (profile) {
+      setUsername(profile.username || "");
+      setFullName(profile.full_name || "");
+      setSelectedAvatar(profile.avatar_url || "");
+    }
+  }, [profile]);
   
   // Local state that will be synced with the database
   const [isDarkMode, setIsDarkMode] = useState(false);
@@ -175,6 +219,11 @@ const SettingsPanel = () => {
     });
   };
 
+  // Create a wrapper function to handle the type conversion for platforms
+  const savePlatforms = async (userId: string, platformsToSave: PlatformWithColor[]) => {
+      await updatePlatforms(userId, platformsToSave);
+  };
+
   const handleAddPlatform = () => {
     if (!user) return;
     if (newPlatform.trim() === "") return;
@@ -193,8 +242,8 @@ const SettingsPanel = () => {
     setNewPlatform("");
     setNewPlatformColor("#808080"); // Reset to default gray
     
-    // Save platforms immediately for better UX
-    updatePlatforms(user.id, updatedPlatforms).catch(() => {
+    // Save platforms immediately for better UX using the wrapper
+    savePlatforms(user.id, updatedPlatforms).catch(() => {
       // Revert on error
       setPlatforms(platforms);
     });
@@ -206,8 +255,8 @@ const SettingsPanel = () => {
     const updatedPlatforms = platforms.filter((p) => p.name !== platformName);
     setPlatforms(updatedPlatforms);
     
-    // Save platforms immediately for better UX
-    updatePlatforms(user.id, updatedPlatforms).catch(() => {
+    // Save platforms immediately for better UX using the wrapper
+    savePlatforms(user.id, updatedPlatforms).catch(() => {
       // Revert on error
       setPlatforms(platforms);
     });
@@ -228,11 +277,35 @@ const SettingsPanel = () => {
     setPlatforms(updatedPlatforms);
     setIsEditPlatformOpen(false);
     
-    // Save platforms immediately for better UX
-    updatePlatforms(user.id, updatedPlatforms).catch(() => {
+    // Save platforms immediately for better UX using the wrapper
+    savePlatforms(user.id, updatedPlatforms).catch(() => {
       // Revert on error
       setPlatforms(platforms);
     });
+  };
+
+  // Handle profile updates using the profile store
+  const handleUpdateProfile = async () => {
+    if (!user) return;
+    
+    try {
+      await updateProfile(user.id, {
+        username: username || null,
+        full_name: fullName || null,
+        avatar_url: selectedAvatar || null // This already handles empty string as null
+      });
+      
+      setIsEditingProfile(false);
+      // Toast is shown by the store
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      // Error is handled in the store
+    }
+  };
+  
+  const handleSelectAvatar = (avatarUrl: string) => {
+    setSelectedAvatar(avatarUrl);
+    setShowAvatarSelector(false);
   };
   
   const handleSignOut = async () => {
@@ -279,6 +352,8 @@ const SettingsPanel = () => {
     };
   };
   
+  const isLoading = isLoadingSettings || isLoadingProfile;
+  
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-[500px]">
@@ -286,7 +361,6 @@ const SettingsPanel = () => {
       </div>
     );
   }
-  
   
   return (
     <div className="max-w-4xl mx-auto animate-fade-in">
@@ -350,8 +424,8 @@ const SettingsPanel = () => {
                   </p>
                   <p className="text-sm text-muted-foreground">
                     {tier === 'premium' 
-                      ? 'Unlimited folders and bookmarks' 
-                      : 'Limited to 5 folders and 30 bookmarks'}
+                      ? 'Unlimited folders and conversations' 
+                      : 'Limited to 5 folders and 30 conversations'}
                   </p>
                 </div>
                 
@@ -390,7 +464,7 @@ const SettingsPanel = () => {
                     <ul className="space-y-1.5">
                       {[
                         'Unlimited folders & organization',
-                        'Store up to 500 bookmarks',
+                        'Store up to 500 conversations',
                         'Advanced search capabilities',
                         'Custom labeling system',
                         'Priority support'
@@ -435,7 +509,7 @@ const SettingsPanel = () => {
             <CardHeader>
               <CardTitle>Appearance</CardTitle>
               <CardDescription>
-                Customize how LLM-Vault looks and feels.
+                Customize how ChatStack looks and feels.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -475,7 +549,7 @@ const SettingsPanel = () => {
                 <div className="flex flex-wrap gap-2">
                   {labels.length === 0 && (
                     <p className="text-sm text-muted-foreground">
-                      No labels yet. Add some below to categorize your bookmarks.
+                      No labels yet. Add some below to categorize your conversations.
                     </p>
                   )}
                   
@@ -530,7 +604,7 @@ const SettingsPanel = () => {
             <CardHeader>
               <CardTitle>Platform Management</CardTitle>
               <CardDescription>
-                Customize LLM platforms and their colors for categorizing your bookmarks.
+                Customize LLM platforms and their colors for categorizing your conversations.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -623,40 +697,142 @@ const SettingsPanel = () => {
         <TabsContent value="account" className="mt-6">
           <Card className="glass-card">
             <CardHeader>
-              <CardTitle>Account</CardTitle>
-              <CardDescription>
-                Manage your account settings.
-              </CardDescription>
+              <div className="flex justify-between items-center">
+                <div>
+                  <CardTitle>Account</CardTitle>
+                  <CardDescription>
+                    Manage your account settings and profile.
+                  </CardDescription>
+                </div>
+                {!isEditingProfile ? (
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => setIsEditingProfile(true)}
+                    className="flex items-center gap-1"
+                  >
+                    <Edit2 className="h-4 w-4" />
+                    Edit Profile
+                  </Button>
+                ) : (
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => setIsEditingProfile(false)}
+                    className="text-muted-foreground"
+                  >
+                    Cancel
+                  </Button>
+                )}
+              </div>
             </CardHeader>
             <CardContent>
               <div className="flex flex-col space-y-4">
-                <div className="flex items-center space-x-4">
-                  <div className="rounded-full bg-primary/10 p-2 h-16 w-16 flex items-center justify-center">
-                    {profile?.avatarUrl ? (
-                      <img 
-                        src={profile.avatarUrl} 
-                        alt={profile.fullName || "Profile"} 
-                        className="h-full w-full rounded-full object-cover"
-                      />
-                    ) : (
-                      <span className="text-2xl font-semibold text-primary">
-                        {(profile?.fullName || user?.email || 'U')[0].toUpperCase()}
-                      </span>
-                    )}
-                  </div>
-                  <div>
-                    <p className="text-lg font-medium">
-                      {profile?.fullName || user?.user_metadata?.full_name || 'User'}
-                    </p>
-                    <p className="text-sm text-muted-foreground">{user?.email || 'No email available'}</p>
-                    
-                    {profile?.username && (
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Username: {profile.username}
+                {!isEditingProfile ? (
+                  // Profile Display Mode
+                  <div className="flex items-center space-x-4">
+                    <div className="rounded-full bg-primary/10 p-2 h-16 w-16 flex items-center justify-center overflow-hidden">
+                      {profile?.avatar_url ? (
+                        <img 
+                          src={profile.avatar_url} 
+                          alt={profile.full_name || "Profile"} 
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <CircleUser className="h-10 w-10 text-primary" />
+                      )}
+                    </div>
+                    <div>
+                      <p className="text-lg font-medium">
+                        {profile?.full_name || user?.user_metadata?.full_name || 'User'}
                       </p>
-                    )}
+                      <p className="text-sm text-muted-foreground">{user?.email || 'No email available'}</p>
+                      
+                      {profile?.username && (
+                        <p className="text-xs text-muted-foreground mt-1 flex items-center">
+                          <AtSign className="h-3 w-3 mr-1" />
+                          {profile.username}
+                        </p>
+                      )}
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  // Profile Edit Mode
+                  <div className="space-y-6">
+                    <div className="flex flex-col items-center">
+                      <div 
+                        className="relative rounded-full h-24 w-24 bg-primary/10 mb-4 overflow-hidden cursor-pointer group"
+                        onClick={() => setShowAvatarSelector(true)}
+                      >
+                        {selectedAvatar ? (
+                          <>
+                            <img 
+                              src={selectedAvatar} 
+                              alt="Selected avatar" 
+                              className="h-full w-full object-cover"
+                            />
+                            <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                              <Edit2 className="h-6 w-6 text-white" />
+                            </div>
+                          </>
+                        ) : (
+                          <div className="h-full w-full flex items-center justify-center">
+                            <User className="h-10 w-10 text-primary" />
+                            <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                              <Edit2 className="h-6 w-6 text-white" />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        Click to change avatar
+                      </p>
+                    </div>
+                    
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="fullName">Full Name</Label>
+                        <Input
+                          id="fullName"
+                          value={fullName}
+                          onChange={(e) => setFullName(e.target.value)}
+                          placeholder="Your name"
+                        />
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="username">Username</Label>
+                        <Input
+                          id="username"
+                          value={username}
+                          onChange={(e) => setUsername(e.target.value)}
+                          placeholder="Username (optional)"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          This will be used for mentions and sharing.
+                        </p>
+                      </div>
+                      
+                      <Button 
+                        onClick={handleUpdateProfile} 
+                        className="w-full"
+                        disabled={isSavingProfile}
+                      >
+                        {isSavingProfile ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Saving...
+                          </>
+                        ) : (
+                          <>
+                            <Save className="mr-2 h-4 w-4" />
+                            Save Changes
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                )}
                 
                 <div className="mt-6 pt-6 border-t">
                   <h3 className="font-medium">Connected Accounts</h3>
@@ -716,6 +892,101 @@ const SettingsPanel = () => {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Avatar Selector Dialog */}
+      <Dialog open={showAvatarSelector} onOpenChange={setShowAvatarSelector}>
+        <DialogContent className="glass-card max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Choose an Avatar</DialogTitle>
+            <DialogDescription>
+              Select a fun avatar for your profile or remove your current avatar.
+            </DialogDescription>
+          </DialogHeader>
+          
+          {/* Add "Remove avatar" option at the top */}
+          <div className="border-b pb-4 mb-2">
+            <div 
+              className={`
+                rounded-lg p-3 cursor-pointer transition-all border-2
+                ${!selectedAvatar 
+                  ? 'border-primary bg-primary/10' 
+                  : 'border-transparent hover:bg-muted'}
+              `}
+              onClick={() => {
+                setSelectedAvatar("");
+                setShowAvatarSelector(false);
+              }}
+            >
+              <div className="flex items-center space-x-3">
+                <div className="relative w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 bg-muted flex items-center justify-center">
+                  <CircleUser className="h-10 w-10 text-primary" />
+                  {!selectedAvatar && (
+                    <div className="absolute bottom-1 right-1 bg-primary rounded-full p-1">
+                      <CheckCircle2 className="h-3 w-3 text-white" />
+                    </div>
+                  )}
+                </div>
+                
+                <div className="flex-1">
+                  <p className="font-medium text-sm">No Avatar</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Use the default profile icon instead of a custom avatar
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          {/* Rest of the avatar options */}
+          <div className="grid grid-cols-2 gap-6 py-4">
+            {avatarOptions.map((avatar) => (
+              <div 
+                key={avatar.id}
+                className={`
+                  rounded-lg p-3 cursor-pointer transition-all border-2
+                  ${selectedAvatar === avatar.url 
+                    ? 'border-primary bg-primary/10' 
+                    : 'border-transparent hover:bg-muted'}
+                `}
+                onClick={() => handleSelectAvatar(avatar.url)}
+              >
+                <div className="flex items-start space-x-3">
+                  <div className="relative w-16 h-16 rounded-lg overflow-hidden flex-shrink-0">
+                    <img 
+                      src={avatar.url} 
+                      alt={avatar.alt} 
+                      className="h-full w-full object-cover"
+                    />
+                    {selectedAvatar === avatar.url && (
+                      <div className="absolute bottom-1 right-1 bg-primary rounded-full p-1">
+                        <CheckCircle2 className="h-3 w-3 text-white" />
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="flex-1">
+                    <p className="font-medium text-sm">{avatar.alt}</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {avatar.description}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAvatarSelector(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={() => setShowAvatarSelector(false)}
+            >
+              Confirm Selection
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
        {/* Edit Platform Dialog */}
        <Dialog open={isEditPlatformOpen} onOpenChange={setIsEditPlatformOpen}>

@@ -171,11 +171,11 @@ const Bookmarks = () => {
           {isLoadingBookmarks ? (
             <div className="flex items-center justify-center py-4">
               <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              <span className="text-sm">Loading bookmarks...</span>
+              <span className="text-sm">Loading conversations...</span>
             </div>
           ) : bookmarksError ? (
             <div className="flex items-center justify-center py-4 text-red-500">
-              <p>Error loading bookmarks</p>
+              <p>Error loading conversations</p>
             </div>
           ) : (
             <BookmarkList 
