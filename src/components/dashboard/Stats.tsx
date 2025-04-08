@@ -61,7 +61,7 @@ import {
           <CardContent>
             <div className="text-2xl font-bold">{stats.recentBookmarks}</div>
             <p className="text-xs text-muted-foreground">
-              Bookmarks added this week
+              Conversations added this week
             </p>
           </CardContent>
         </Card>
@@ -74,7 +74,7 @@ import {
           <CardContent>
             <div className="text-2xl font-bold">{Math.round(stats.averagePerDay) === 0 ? '-' : Math.round(stats.averagePerDay)}</div>
             <p className="text-xs text-muted-foreground">
-              Bookmarks per day
+              Conversations per day
             </p>
           </CardContent>
         </Card>

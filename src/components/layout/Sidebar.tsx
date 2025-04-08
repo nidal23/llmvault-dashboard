@@ -306,7 +306,7 @@ const Sidebar = ({ open, onOpenChange }: SidebarProps) => {
       >
         <div className="flex h-16 items-center justify-between px-4">
           <Link to="/" className="flex items-center gap-2">
-            <span className="font-semibold text-xl text-sidebar-foreground">ChatBook</span>
+            <span className="font-semibold text-xl text-sidebar-foreground">ChatStack</span>
           </Link>
           <Button 
             variant="ghost" 

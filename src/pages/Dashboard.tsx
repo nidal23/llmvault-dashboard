@@ -65,7 +65,7 @@ const Dashboard = () => {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
           <p className="text-muted-foreground mt-1">
-            Welcome to LLM-Vault. View your bookmarks and analytics.
+            Welcome to ChatStack. View your conversations and analytics.
           </p>
         </div>
         
@@ -80,7 +80,7 @@ const Dashboard = () => {
                 <div>
                   <h3 className="font-medium">Unlock Premium Features</h3>
                   <p className="text-sm text-muted-foreground">
-                    Upgrade to Premium for unlimited folders and bookmarks
+                    Upgrade to Premium for unlimited folders and conversations
                   </p>
                 </div>
               </div>
@@ -113,11 +113,11 @@ const Dashboard = () => {
           {isLoading ? (
             <div className="flex justify-center items-center py-12">
               <Loader2 className="w-6 h-6 animate-spin mr-2" />
-              <span>Loading bookmarks...</span>
+              <span>Loading conversations...</span>
             </div>
           ) : bookmarksError ? (
             <div className="text-center py-12 border border-dashed rounded-md border-red-300">
-              <p className="text-red-500">Error loading bookmarks</p>
+              <p className="text-red-500">Error loading conversations</p>
               <button 
                 onClick={() => window.location.reload()}
                 className="text-sm mt-2 text-blue-500 hover:underline"
@@ -135,7 +135,7 @@ const Dashboard = () => {
             </div>
           ) : (
             <div className="text-center py-12 border border-dashed rounded-md">
-              <p className="text-muted-foreground">No bookmarks yet</p>
+              <p className="text-muted-foreground">No conversations yet</p>
               <p className="text-sm mt-2">Start saving your LLM conversations to see them here</p>
             </div>
           )}

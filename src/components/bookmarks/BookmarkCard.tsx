@@ -171,12 +171,12 @@ const BookmarkCard = ({ bookmark, onBookmarkChange }: BookmarkCardProps) => {
   
   const handleDelete = async () => {
     if (!user) {
-      toast.error('You must be logged in to delete bookmarks');
+      toast.error('You must be logged in to delete conversations');
       return;
     }
 
     if (!bookmark?.id) {
-      toast.error('Unable to delete bookmark');
+      toast.error('Unable to delete conversations');
       return;
     }
 

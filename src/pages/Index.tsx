@@ -51,10 +51,10 @@ const Index = () => {
   return (
     <div className="min-h-screen flex flex-col">
         <header className="sticky top-0 z-50 w-full border-b bg-background/80 backdrop-blur-md">
-            <div className="container flex h-16 items-center justify-between">
+            <div className="container flex h-16 items-center justify-between px-2">
             <div className="flex items-center gap-2">
                 <Bookmark className="h-6 w-6" />
-                <span className="font-semibold text-xl">LLM-Vault</span>
+                <span className="font-semibold text-xl">ChatStack</span>
             </div>
             <nav className="hidden md:flex gap-6 items-center">
                 <a href="#features" onClick={scrollToFeatures}  className="text-muted-foreground hover:text-foreground transition-colors">
@@ -95,7 +95,7 @@ const Index = () => {
                 Organize your AI conversations
               </h1>
               <p className="mt-6 text-lg text-muted-foreground">
-                LLM-Vault helps you bookmark, organize, and retrieve your most valuable LLM conversations from ChatGPT, Claude, and more.
+              ChatStack helps you bookmark, organize, and retrieve your most valuable LLM conversations from ChatGPT, Claude, and more.
               </p>
               <div className="mt-10 flex flex-col sm:flex-row gap-4 justify-center md:justify-start">
                 {isLoggedIn ? (
@@ -115,8 +115,8 @@ const Index = () => {
             <div className="md:w-1/2 mt-10 md:mt-0 animate-fade-in">
               <div className="glass-card rounded-2xl overflow-hidden shadow-2xl">
                 <img 
-                  src="https://placehold.co/600x400/3b82f6/ffffff?text=ChatBook+Dashboard" 
-                  alt="LLM-Vault Dashboard Preview" 
+                  src="https://placehold.co/600x400/3b82f6/ffffff?text=ChatStack+Dashboard" 
+                  alt="ChatStack Dashboard Preview" 
                   className="w-full h-auto object-cover rounded-2xl"
                 />
               </div>
@@ -130,7 +130,7 @@ const Index = () => {
             <div className="text-center mb-16 animate-fade-in">
               <h2 className="text-3xl sm:text-4xl font-bold">Everything you need to stay organized</h2>
               <p className="mt-4 text-lg text-muted-foreground max-w-2xl mx-auto">
-                LLM-Vault gives you powerful tools to manage your AI conversations across different platforms.
+                ChatStack gives you powerful tools to manage your AI conversations across different platforms.
               </p>
             </div>
             
@@ -143,7 +143,7 @@ const Index = () => {
                 },
                 {
                   title: "Folder Organization",
-                  description: "Create nested folders to organize bookmarks by project, topic, or any way you choose.",
+                  description: "Create nested folders to organize conversations by project, topic, or any way you choose.",
                   icon: "📁",
                 },
                 {
@@ -153,12 +153,12 @@ const Index = () => {
                 },
                 {
                   title: "Labels & Tags",
-                  description: "Add custom labels to categorize your bookmarks for easier management.",
+                  description: "Add custom labels to categorize your conversations for easier management.",
                   icon: "🏷️",
                 },
                 {
                   title: "Cross Platform",
-                  description: "Access your bookmarks from any device with our web dashboard and browser extension.",
+                  description: "Access your conversations from any device with our web dashboard and browser extension.",
                   icon: "🔄",
                 },
               ].map((feature, index) => (
@@ -181,7 +181,7 @@ const Index = () => {
           <div className="text-center mb-16 animate-fade-in">
             <h2 className="text-3xl sm:text-4xl font-bold">How It Works</h2>
             <p className="mt-4 text-lg text-muted-foreground max-w-2xl mx-auto">
-              LLM-Vault is designed to work seamlessly with your existing workflow.
+              ChatStack is designed to work seamlessly with your existing workflow.
             </p>
           </div>
           
@@ -200,7 +200,7 @@ const Index = () => {
               {
                 step: "3",
                 title: "Organize & Access",
-                description: "Manage your bookmarks and access them from anywhere.",
+                description: "Manage your conversations and access them from anywhere.",
               },
             ].map((step, index) => (
               <div 
@@ -339,7 +339,7 @@ const Index = () => {
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center">
           <div className="flex items-center gap-2 mb-4 md:mb-0">
             <Bookmark className="h-5 w-5" />
-            <span className="font-semibold">LLM-Vault</span>
+            <span className="font-semibold">ChatStack</span>
           </div>
           <div className="flex gap-6">
             <a href="#" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
@@ -353,7 +353,7 @@ const Index = () => {
             </a>
           </div>
           <div className="mt-4 md:mt-0 text-sm text-muted-foreground">
-            &copy; {new Date().getFullYear()} LLM-Vault. All rights reserved.
+            &copy; {new Date().getFullYear()} ChatStack. All rights reserved.
           </div>
         </div>
       </footer>

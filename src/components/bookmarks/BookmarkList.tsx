@@ -169,7 +169,7 @@ const BookmarkList = ({ bookmarks, folderId, folderName, onBookmarksChange }: Bo
   
   const handleCreateBookmark = async () => {
     if (!user) {
-      toast.error('You must be logged in to create bookmarks');
+      toast.error('You must be logged in to add a conversation');
       return;
     }
     
@@ -247,7 +247,7 @@ const BookmarkList = ({ bookmarks, folderId, folderName, onBookmarksChange }: Bo
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Search bookmarks..."
+              placeholder="Search conversations..."
               value={search}
               onChange={(e) => handleSearch(e.target.value)}
               className="pl-9 focus-visible:ring-1 dark:border-gray-700 dark:bg-gray-800/50"
@@ -305,7 +305,7 @@ const BookmarkList = ({ bookmarks, folderId, folderName, onBookmarksChange }: Bo
         <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
           <div className="flex items-center gap-1.5">
             <BookmarkIcon className="h-4 w-4" />
-            <span>{sortedBookmarks.length} bookmarks</span>
+            <span>{sortedBookmarks.length} conversations</span>
           </div>
           
           {filterPlatform !== "all" && (
@@ -327,7 +327,7 @@ const BookmarkList = ({ bookmarks, folderId, folderName, onBookmarksChange }: Bo
       {sortedBookmarks.length === 0 ? (
         <div className="mt-8 flex h-60 flex-col items-center justify-center rounded-lg border border-dashed p-8 text-center animate-fade-in">
           <BookmarkIcon className="h-10 w-10 text-muted-foreground/60" />
-          <h3 className="mt-4 text-lg font-semibold">No bookmarks found</h3>
+          <h3 className="mt-4 text-lg font-semibold">No conversations found</h3>
           <p className="mt-2 text-sm text-muted-foreground">
             {search ? "Try adjusting your search or filters" : "Get started by adding your first bookmark"}
           </p>

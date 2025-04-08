@@ -40,7 +40,7 @@ export const NewFolderDialogContent = memo(({
       <DialogHeader>
         <DialogTitle>New Folder</DialogTitle>
         <DialogDescription>
-          Create a new folder to organize your bookmarks.
+          Create a new folder to organize your conversations.
         </DialogDescription>
       </DialogHeader>
       <div className="grid gap-4 py-4">
@@ -195,7 +195,7 @@ export const DeleteFolderDialog = ({
             
             {hasBookmarks && (
               <div className="mt-2 text-destructive">
-                Warning: This folder contains bookmarks that will also be deleted.
+                Warning: This folder contains conversations that will also be deleted.
               </div>
             )}
           </DialogDescription>
