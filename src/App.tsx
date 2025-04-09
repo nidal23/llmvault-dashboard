@@ -11,6 +11,7 @@ import { AuthProvider } from "./lib/hooks/useAuth";
 import Settings from "./pages/Settings";
 import Bookmarks from "./pages/Bookmarks";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
+import ExtensionAuthCallback from "./pages/auth/ExtensionAuthCallback";
 
 const queryClient = new QueryClient();
 
@@ -39,6 +40,7 @@ function App() {
                     </ProtectedRoute>
                   } />
                   <Route path="/auth/callback" element={<AuthCallback />} />
+                  <Route path="/extension-auth-callback" element={<ExtensionAuthCallback />} />
                   <Route path="*" element={<NotFound />} />
                 </Routes>
               </BrowserRouter>
