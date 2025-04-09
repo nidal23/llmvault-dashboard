@@ -123,7 +123,7 @@ const Header = ({ sidebarOpen, setSidebarOpen }: HeaderProps) => {
           <span className="sr-only">Toggle menu</span>
         </Button>
         <Link to="/" className="flex items-center gap-2">
-          <span className="font-semibold text-xl">ChatStack</span>
+          <span className="font-semibold text-xl">ConvoStack</span>
         </Link>
       </div>
 

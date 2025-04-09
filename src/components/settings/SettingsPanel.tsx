@@ -509,7 +509,7 @@ const SettingsPanel = () => {
             <CardHeader>
               <CardTitle>Appearance</CardTitle>
               <CardDescription>
-                Customize how ChatStack looks and feels.
+                Customize how ConvoStack looks and feels.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
