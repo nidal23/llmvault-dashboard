@@ -66,7 +66,7 @@ const Index = () => {
             <div className="container flex h-16 items-center justify-between px-2">
             <div className="flex items-center gap-2">
                 <Bookmark className="h-6 w-6" />
-                <span className="font-semibold text-xl">ChatStack</span>
+                <span className="font-semibold text-xl">ConvoStack</span>
             </div>
             <nav className="hidden md:flex gap-6 items-center">
                 <a href="#features" onClick={scrollToFeatures} className="text-muted-foreground hover:text-foreground transition-colors">
@@ -129,7 +129,7 @@ const Index = () => {
                 Find your AI genius, <span className="text-primary">when you need it</span>
               </h1>
               <p className="mt-6 text-lg text-muted-foreground">
-                Stop losing your brilliant AI conversations in the noise. ChatStack helps you organize and retrieve valuable insights from ChatGPT, Claude, and other LLMs — so you can focus on getting things done.
+                Stop losing your brilliant AI conversations in the noise. ConvoStack helps you organize and retrieve valuable insights from ChatGPT, Claude, and other LLMs — so you can focus on getting things done.
               </p>
               <div className="mt-10 flex flex-col sm:flex-row gap-4 justify-center md:justify-start">
                 {isLoggedIn ? (
@@ -138,7 +138,7 @@ const Index = () => {
                     <ChevronRight className="ml-2 h-4 w-4" />
                   </Button>
                 ) : (
-                  <GoogleAuthButton onSuccess={handleAuthSuccess} variant="cta" />
+                  <GoogleAuthButton onSuccess={handleAuthSuccess} />
                 )}
                 <Button variant="outline" size="lg" onClick={scrollToExtension}>
                   Install Extension
@@ -149,8 +149,8 @@ const Index = () => {
             <div className="md:w-1/2 mt-10 md:mt-0 animate-fade-in">
               <div className="glass-card rounded-2xl overflow-hidden shadow-2xl">
                 <img 
-                  src="https://placehold.co/600x400/3b82f6/ffffff?text=ChatStack+Dashboard" 
-                  alt="ChatStack Dashboard Preview" 
+                  src="https://placehold.co/600x400/3b82f6/ffffff?text=ConvoStack+Dashboard" 
+                  alt="ConvoStack Dashboard Preview" 
                   className="w-full h-auto object-cover rounded-2xl"
                 />
               </div>
@@ -164,7 +164,7 @@ const Index = () => {
             <div className="text-center mb-16 animate-fade-in">
               <h2 className="text-3xl sm:text-4xl font-bold">Never lose your AI wisdom again</h2>
               <p className="mt-4 text-lg text-muted-foreground max-w-2xl mx-auto">
-                ChatStack helps you organize your AI conversations so you can quickly find exactly what you need, when you need it.
+                ConvoStack helps you organize your AI conversations so you can quickly find exactly what you need, when you need it.
               </p>
             </div>
             
@@ -215,7 +215,7 @@ const Index = () => {
           <div className="text-center mb-16 animate-fade-in">
             <h2 className="text-3xl sm:text-4xl font-bold">How It Works</h2>
             <p className="mt-4 text-lg text-muted-foreground max-w-2xl mx-auto">
-              ChatStack integrates seamlessly into your AI workflow in just three simple steps.
+            ConvoStack integrates seamlessly into your AI workflow in just three simple steps.
             </p>
           </div>
           
@@ -252,17 +252,16 @@ const Index = () => {
           </div>
           
           <div className="mt-16 text-center">
-            <p className="text-lg font-medium mb-4">Ready to stack your chats?</p>
-            <div className="flex justify-center">
-              {!isLoggedIn ? (
-                <GoogleAuthButton onSuccess={handleAuthSuccess} variant="cta" />
-              ) : (
-                <Button className="apple-button" size="lg" onClick={() => navigate("/dashboard")}>
-                  Build Your Stack
-                  <ChevronRight className="ml-2 h-4 w-4" />
-                </Button>
-              )}
-            </div>
+            <p className="text-lg font-medium mb-4">Ready to stack your convos?</p>
+            {!isLoggedIn && (
+              <GoogleAuthButton onSuccess={handleAuthSuccess} />
+            )}
+            {isLoggedIn && (
+              <Button className="apple-button" size="lg" onClick={() => navigate("/dashboard")}>
+                Build Your Stack
+                <ChevronRight className="ml-2 h-4 w-4" />
+              </Button>
+            )}
           </div>
         </section>
         
@@ -270,9 +269,9 @@ const Index = () => {
         <section id="extension" className="py-20 bg-muted/50">
           <div className="px-4 sm:px-6 md:px-8 lg:px-16 max-w-7xl mx-auto">
             <div className="text-center mb-16 animate-fade-in">
-              <h2 className="text-3xl sm:text-4xl font-bold">Get the ChatStack Extension</h2>
+              <h2 className="text-3xl sm:text-4xl font-bold">Get the ConvoStack Extension</h2>
               <p className="mt-4 text-lg text-muted-foreground max-w-2xl mx-auto">
-                The free ChatStack Chrome extension is the key to organizing your AI conversations.
+                The free ConvoStack Chrome extension is the key to organizing your AI conversations.
               </p>
             </div>
             
@@ -282,7 +281,7 @@ const Index = () => {
                   <div className="aspect-video bg-card flex items-center justify-center rounded-lg mb-6 overflow-hidden">
                     <img 
                       src="https://placehold.co/600x400/3b82f6/ffffff?text=Chrome+Extension" 
-                      alt="ChatStack Chrome Extension" 
+                      alt="ConvoStack Chrome Extension" 
                       className="w-full h-auto"
                     />
                   </div>
@@ -358,20 +357,17 @@ const Index = () => {
             </div>
             
             <div className="mt-16 text-center">
-              <p className="text-lg font-medium mb-4">What's in your chat stack today?</p>
+              <p className="text-lg font-medium mb-4">What's in your convo stack today?</p>
               <p className="text-sm text-muted-foreground mb-6">From vibe coders to PhD researchers to insomnia-driven entrepreneurs — we've got you covered.</p>
-              <div className="flex justify-center">
-                {!isLoggedIn ? (
-                  <GoogleAuthButton onSuccess={handleAuthSuccess} variant="cta" />
-                ) : (
-                  <Button className="apple-button" size="lg" onClick={() => navigate("/dashboard")}>
-                    Build Your Stack
-                    <ChevronRight className="ml-2 h-4 w-4" />
-                  </Button>
-                )}
-              </div>
+              {!isLoggedIn ? (
+                <GoogleAuthButton onSuccess={handleAuthSuccess} />
+              ) : (
+                <Button className="apple-button" size="lg" onClick={() => navigate("/dashboard")}>
+                  Go to Dashboard
+                  <ChevronRight className="ml-2 h-4 w-4" />
+                </Button>
+              )}
             </div>
-
           </div>
         </section>
       </main>
@@ -380,7 +376,7 @@ const Index = () => {
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center">
           <div className="flex items-center gap-2 mb-4 md:mb-0">
             <Bookmark className="h-5 w-5" />
-            <span className="font-semibold">ChatStack</span>
+            <span className="font-semibold">ConvoStack</span>
           </div>
           <div className="flex gap-6">
             <a href="#" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
@@ -394,7 +390,7 @@ const Index = () => {
             </a>
           </div>
           <div className="mt-4 md:mt-0 text-sm text-muted-foreground">
-            &copy; {new Date().getFullYear()} ChatStack. All rights reserved.
+            &copy; {new Date().getFullYear()} ConvoStack. All rights reserved.
           </div>
         </div>
       </footer>
