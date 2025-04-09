@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import GoogleAuthButton from "@/components/auth/GoogleAuthButton";
 import { useAuth } from "../lib/hooks/useAuth";
 import { toast } from "sonner";
+import ConvoStackHubDiagram from "@/components/home/ConvoStackHubDiagram";
 
 const Index = () => {
   const navigate = useNavigate();
@@ -138,7 +139,7 @@ const Index = () => {
                     <ChevronRight className="ml-2 h-4 w-4" />
                   </Button>
                 ) : (
-                  <GoogleAuthButton onSuccess={handleAuthSuccess} />
+                  <GoogleAuthButton onSuccess={handleAuthSuccess} variant="cta" />
                 )}
                 <Button variant="outline" size="lg" onClick={scrollToExtension}>
                   Install Extension
@@ -148,11 +149,17 @@ const Index = () => {
             </div>
             <div className="md:w-1/2 mt-10 md:mt-0 animate-fade-in">
               <div className="glass-card rounded-2xl overflow-hidden shadow-2xl">
-                <img 
-                  src="https://placehold.co/600x400/3b82f6/ffffff?text=ConvoStack+Dashboard" 
-                  alt="ConvoStack Dashboard Preview" 
-                  className="w-full h-auto object-cover rounded-2xl"
-                />
+              <div className="w-full aspect-[3/2] relative">
+              <div className="w-full h-full flex items-center justify-center">
+                {/* ConvoStackHubDiagram component replaces the placeholder image */}
+                <div className="w-4/5 h-4/5 relative">
+                  <ConvoStackHubDiagram 
+                    compactMode={true} 
+                  />
+                </div>
+                
+              </div>
+              </div>
               </div>
             </div>
           </div>
