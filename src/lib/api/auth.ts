@@ -13,7 +13,7 @@ export async function signInWithGoogle(): Promise<{ data: any; error: any }> {
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
-      redirectTo: `https://www.convostack.io/dashboard`,
+      redirectTo: `${window.location.origin}/dashboard`,
     }
   });
   
