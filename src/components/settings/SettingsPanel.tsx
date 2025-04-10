@@ -79,8 +79,6 @@ const SettingsPanel = () => {
   const [showAvatarSelector, setShowAvatarSelector] = useState(false);
   const [avatarOptions] = useState(getAvatarOptions());
 
-  console.log('avatar options:', avatarOptions)
-
   // Load data when component mounts
   useEffect(() => {
     if (user) {

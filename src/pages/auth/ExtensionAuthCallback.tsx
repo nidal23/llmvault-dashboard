@@ -8,7 +8,6 @@ export default function ExtensionAuthCallback() {
   useEffect(() => {
     async function handleAuthCallback() {
       try {
-        console.log("Extension auth callback page loaded");
         
         // Check if we have a hash fragment (which contains the tokens)
         if (window.location.hash) {
@@ -17,13 +16,11 @@ export default function ExtensionAuthCallback() {
         
         // Get the session from Supabase
         const { data: { session } } = await supabase.auth.getSession();
-        console.log("Session from Supabase:", session ? "Found" : "Not found");
         
         if (session) {
           // Get extension ID from URL params
           const params = new URLSearchParams(window.location.search);
           const extId = params.get('extensionId');
-          console.log("Extension ID from URL:", extId);
           
           if (!extId) {
             setStatus('error');
@@ -39,14 +36,12 @@ export default function ExtensionAuthCallback() {
                 extId, 
                 { type: 'auth_callback', session: session },
                 (response) => {
-                  console.log("Response from extension:", response);
                   
                   if (window?.chrome?.runtime.lastError) {
                     console.error("Error:", window.chrome.runtime.lastError);
                     setStatus('error');
                     setErrorMessage(`Error communicating with extension: ${window.chrome.runtime.lastError.message}`);
                   } else if (response && response.status === 'success') {
-                    console.log("Authentication successful");
                     setStatus('success');
                   } else {
                     setStatus('error');
@@ -56,7 +51,6 @@ export default function ExtensionAuthCallback() {
               );
             } else {
               // Manual auth success - for testing when Chrome API isn't available
-              console.log("Chrome API not available, showing success anyway");
               setStatus('success');
             }
           } catch (error) {

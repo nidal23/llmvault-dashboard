@@ -15,18 +15,15 @@ export default function AuthCallback() {
   useEffect(() => {
     const handleCallback = async () => {
       try {
-        console.log('Current URL:', window.location.href);
         
         // Check if we have a hash fragment (which contains the tokens)
         if (window.location.hash) {
-          console.log('Hash fragment detected, checking session...');
           
           // The session should be automatically set by Supabase when using hash fragments
           // Just verify we have a session
           const { data: { session } } = await supabase.auth.getSession();
           
           if (session) {
-            console.log('Session established successfully');
             // Show success toast
             toast.success("Successfully signed in!");
             // Redirect to dashboard on success
@@ -44,7 +41,6 @@ export default function AuthCallback() {
         const code = url.searchParams.get('code');
         
         if (code) {
-          console.log('Code parameter found, exchanging for session...');
           const { error } = await supabase.auth.exchangeCodeForSession(code);
           
           if (error) {
@@ -63,7 +59,6 @@ export default function AuthCallback() {
         // Final check for an existing session
         const { data: { session } } = await supabase.auth.getSession();
         if (session) {
-          console.log('Session already exists, proceeding to dashboard');
           // Don't show toast here as they might just be navigating back
           navigate('/dashboard');
           return;

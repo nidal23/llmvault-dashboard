@@ -33,11 +33,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (needsProfileRefresh && user && !isLoading) {
       const fetchProfile = async () => {
         try {
-          console.log('Fetching user profile...');
           const userProfile = await withTimeout(getUserProfile());
           if (mounted) {
             setProfile(userProfile);
-            console.log('Profile fetched successfully');
           }
         } catch (error) {
           console.error('Error fetching user profile:', error);
@@ -55,11 +53,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, [needsProfileRefresh, user, isLoading]);
   
   const refreshUser = async () => {
-    console.log('refresh user called');
     try {
       // First try to get user from session directly
       const { data: sessionData, error: sessionError } = await withTimeout(supabase.auth.getSession());
-      console.log('Session data:', sessionData);
       
       if (sessionError) {
         console.error('Error getting session:', sessionError);
@@ -68,7 +64,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       if (sessionData?.session) {
         // If we have a session, use the user from it
         const sessionUser = sessionData.session.user;
-        console.log('User from session:', sessionUser);
         setUser(sessionUser);
         
         // Set flag to fetch profile in separate effect
@@ -84,7 +79,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       // Fall back to getCurrentUser if no session
       try {
         const currentUser = await withTimeout(getCurrentUser());
-        console.log('Current user from API:', currentUser);
         setUser(currentUser);
         
         if (currentUser) {
@@ -118,14 +112,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       try {
         // Check for existing session directly
         const { data: sessionData, error: sessionError } = await withTimeout(supabase.auth.getSession());
-        console.log('Initial session check:', sessionData);
         
         if (sessionError) {
           console.error('Error in initial session check:', sessionError);
         }
         
         if (sessionData?.session && mounted) {
-          console.log('Found existing session, setting user');
           setUser(sessionData.session.user);
           
           // Set flag to fetch profile in separate effect
@@ -145,7 +137,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     
     // Set up auth state change listener
     const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log('Auth state changed:', event, 'Session:', !!session);
       
       if (!mounted) return;
       
@@ -153,7 +144,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setIsLoading(true);
         
         if (session && mounted) {
-          console.log('Setting user from auth event session');
           setUser(session.user);
           
           // Set flag to fetch profile in separate effect instead of fetching here
@@ -172,7 +162,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           }, 0);
         }
       } else if (event === 'SIGNED_OUT') {
-        console.log('User signed out, clearing user state');
         if (mounted) {
           setUser(null);
           setProfile(null);
@@ -185,7 +174,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     });
     
     return () => {
-      console.log('Cleaning up auth listener');
       mounted = false;
       authListener.subscription.unsubscribe();
     };

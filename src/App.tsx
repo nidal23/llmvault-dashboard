@@ -12,6 +12,7 @@ import Settings from "./pages/Settings";
 import Bookmarks from "./pages/Bookmarks";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
 import ExtensionAuthCallback from "./pages/auth/ExtensionAuthCallback";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
 
 const queryClient = new QueryClient();
 
@@ -41,6 +42,7 @@ function App() {
                   } />
                   <Route path="/auth/callback" element={<AuthCallback />} />
                   <Route path="/extension-auth-callback" element={<ExtensionAuthCallback />} />
+                  <Route path="/privacy-policy" element={<PrivacyPolicy />} />
                   <Route path="*" element={<NotFound />} />
                 </Routes>
               </BrowserRouter>
