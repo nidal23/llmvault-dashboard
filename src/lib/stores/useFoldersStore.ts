@@ -49,14 +49,12 @@ export const useFoldersStore = create<FoldersState>()(
         const { isFetching, lastFetchTime, isLoading } = get();
         const now = Date.now();
         if (!force && !isLoading && now - lastFetchTime < 2000) {
-          console.log('Skipping folder fetch - throttled');
           return;
         }
         
         // Skip if already fetching
         if (isFetching) return;
         
-        console.log('Fetching folders...');
         set({ isFetching: true });
         if (isLoading) {
           set({ isLoading: true });

@@ -1,12 +1,13 @@
 //pages/index.tsx
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Bookmark, ChevronRight, ExternalLink, Cpu, FolderSearch, BrainCircuit, Clock, ZapIcon, Moon, Sun } from "lucide-react";
+import { ChevronRight, ExternalLink, Cpu, FolderSearch, BrainCircuit, Clock, ZapIcon, Moon, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import GoogleAuthButton from "@/components/auth/GoogleAuthButton";
 import { useAuth } from "../lib/hooks/useAuth";
 import { toast } from "sonner";
 import ConvoStackHubDiagram from "@/components/home/ConvoStackHubDiagram";
+import dashbordLogo from '@/assets/platforms/convo-stack-logo-bg.png';
 
 const Index = () => {
   const navigate = useNavigate();
@@ -65,9 +66,9 @@ const Index = () => {
     <div className="min-h-screen flex flex-col dark:bg-slate-950 dark:text-white transition-colors">
         <header className="sticky top-0 z-50 w-full border-b bg-background/80 backdrop-blur-md">
             <div className="container flex h-16 items-center justify-between px-2">
-            <div className="flex items-center gap-2">
-                <Bookmark className="h-6 w-6" />
-                <span className="font-semibold text-xl">ConvoStack</span>
+            <div className="flex items-center gap-1">
+              <img src={dashbordLogo} alt="convostack-logo" className="w-12 h-12 object-contain" />
+              <span className="font-semibold text-xl -ml-3">ConvoStack</span>
             </div>
             <nav className="hidden md:flex gap-6 items-center">
                 <a href="#features" onClick={scrollToFeatures} className="text-muted-foreground hover:text-foreground transition-colors">
@@ -385,22 +386,14 @@ const Index = () => {
       <footer className="border-t py-10 px-4 sm:px-6 md:px-8 lg:px-16">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center">
           <div className="flex items-center gap-2 mb-4 md:mb-0">
-            <Bookmark className="h-5 w-5" />
-            <span className="font-semibold">ConvoStack</span>
           </div>
           <div className="flex gap-6">
-            <a href="#" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+            <a href="privacy-policy" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
               Privacy Policy
             </a>
-            <a href="#" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-              Terms of Service
-            </a>
-            <a href="#" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-              Help Center
-            </a>
-          </div>
-          <div className="mt-4 md:mt-0 text-sm text-muted-foreground">
+            <div className="mt-4 md:mt-0 text-sm text-muted-foreground">
             &copy; {new Date().getFullYear()} ConvoStack. All rights reserved.
+          </div>
           </div>
         </div>
       </footer>

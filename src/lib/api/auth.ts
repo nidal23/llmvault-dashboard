@@ -26,16 +26,13 @@ export async function signOut(): Promise<void> {
 
 export async function getCurrentUser(): Promise<any> {
   try {
-    console.log('inside get current user');
     const response = await supabase.auth.getUser();
-    console.log('Raw response from getUser:', response); // Log the entire response
     
     if (response.error) {
       console.error('Error in getUser response:', response.error);
       return null;
     }
     
-    console.log('data from current user: ', response.data);
     return response.data.user;
   } catch (error) {
     console.error('Error fetching current user:', error);

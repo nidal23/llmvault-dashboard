@@ -13,7 +13,6 @@ const GoogleAuthButton = ({ onSuccess, onError, variant = "default" }: GoogleAut
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSignIn = async () => {
-    console.log('got clicked on');
     setIsLoading(true);
     
     try {

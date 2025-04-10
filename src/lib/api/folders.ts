@@ -4,7 +4,6 @@ import { supabase } from '../supabase/client';
 import type { Folder, FolderWithCount } from '../supabase/database.types';
 
 export const getFolders = async (userId: string): Promise<FolderWithCount[]> => {
-  console.log('in here get folders')
   const { data, error } = await supabase
     .from('folders')
     .select(`
