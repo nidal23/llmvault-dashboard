@@ -95,7 +95,7 @@ const Index = () => {
                         Go to Dashboard
                     </Button>
                 ) : (
-                    <GoogleAuthButton onSuccess={handleAuthSuccess} />
+                    <GoogleAuthButton onSuccess={handleAuthSuccess} variant="cta"/>
                 )}
             </nav>
             <div className="md:hidden flex items-center gap-2">
@@ -260,15 +260,16 @@ const Index = () => {
           
           <div className="mt-16 text-center">
             <p className="text-lg font-medium mb-4">Ready to stack your convos?</p>
-            {!isLoggedIn && (
-              <GoogleAuthButton onSuccess={handleAuthSuccess} />
-            )}
-            {isLoggedIn && (
-              <Button className="apple-button" size="lg" onClick={() => navigate("/dashboard")}>
-                Build Your Stack
-                <ChevronRight className="ml-2 h-4 w-4" />
-              </Button>
-            )}
+            <div className="flex justify-center">
+              {!isLoggedIn ? (
+                <GoogleAuthButton onSuccess={handleAuthSuccess} variant="cta" />
+              ) : (
+                <Button className="apple-button" size="lg" onClick={() => navigate("/dashboard")}>
+                  Build Your Stack
+                  <ChevronRight className="ml-2 h-4 w-4" />
+                </Button>
+              )}
+            </div>
           </div>
         </section>
         
@@ -366,14 +367,16 @@ const Index = () => {
             <div className="mt-16 text-center">
               <p className="text-lg font-medium mb-4">What's in your convo stack today?</p>
               <p className="text-sm text-muted-foreground mb-6">From vibe coders to PhD researchers to insomnia-driven entrepreneurs — we've got you covered.</p>
-              {!isLoggedIn ? (
-                <GoogleAuthButton onSuccess={handleAuthSuccess} />
-              ) : (
-                <Button className="apple-button" size="lg" onClick={() => navigate("/dashboard")}>
-                  Go to Dashboard
-                  <ChevronRight className="ml-2 h-4 w-4" />
-                </Button>
-              )}
+                <div className="flex justify-center">
+                  {!isLoggedIn ? (
+                    <GoogleAuthButton onSuccess={handleAuthSuccess} variant="cta" />
+                  ) : (
+                    <Button className="apple-button" size="lg" onClick={() => navigate("/dashboard")}>
+                      Build Your Stack
+                      <ChevronRight className="ml-2 h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
             </div>
           </div>
         </section>
