@@ -12,6 +12,8 @@ type UserSettingsState = {
   updateDefaultLabels: (userId: string, labels: string[]) => Promise<void>;
   updatePlatforms: (userId: string, platforms: PlatformWithColor[]) => Promise<void>;
   toggleAutoDetectPlatform: (userId: string) => Promise<void>;
+  getTheme: () => string;
+  setThemeInDOM: (theme: string) => void;
 };
 
 export const useUserSettingsStore = create<UserSettingsState>((set, get) => ({
@@ -41,9 +43,13 @@ export const useUserSettingsStore = create<UserSettingsState>((set, get) => ({
           { name: "Perplexity", color: "#61C7FA" }
         ];
         
+        // Detect system preference for theme
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        const defaultTheme = prefersDark ? 'dark' : 'light';
+        
         const defaultSettings = {
           user_id: userId,
-          theme: 'light',
+          theme: defaultTheme,
           auto_detect_platform: true,
           default_labels: [] as Json,
           platforms: defaultPlatforms as unknown as Json
@@ -56,6 +62,12 @@ export const useUserSettingsStore = create<UserSettingsState>((set, get) => ({
           .single();
           
         if (createError) throw createError;
+        
+        // Apply theme to DOM
+        get().setThemeInDOM(defaultTheme);
+        
+        // Store in localStorage
+        localStorage.setItem('user-theme', defaultTheme);
         
         set({ settings: newSettings, isLoading: false });
       } else {
@@ -96,6 +108,14 @@ export const useUserSettingsStore = create<UserSettingsState>((set, get) => ({
           }
         }
         
+        // Apply theme to DOM
+        if (updatedData.theme) {
+          get().setThemeInDOM(updatedData.theme);
+          
+          // Store in localStorage
+          localStorage.setItem('user-theme', updatedData.theme);
+        }
+        
         set({ settings: updatedData, isLoading: false });
       }
     } catch (error) {
@@ -115,6 +135,12 @@ export const useUserSettingsStore = create<UserSettingsState>((set, get) => ({
         .eq('user_id', userId);
         
       if (error) throw error;
+      
+      // Apply theme to DOM
+      get().setThemeInDOM(theme);
+      
+      // Store in localStorage for persistence between sessions
+      localStorage.setItem('user-theme', theme);
       
       // Update local state
       set((state) => {
@@ -230,6 +256,37 @@ export const useUserSettingsStore = create<UserSettingsState>((set, get) => ({
       console.error('Error updating auto-detect setting:', error);
       set({ error: error as Error, isLoading: false });
       toast.error('Failed to update setting');
+    }
+  },
+
+  // Utility method to get current theme (from store or fallback to localStorage)
+  getTheme: () => {
+    const state = get();
+    
+    // First check store
+    if (state.settings?.theme) {
+      return state.settings.theme;
+    }
+    
+    // Then check localStorage
+    const storedTheme = localStorage.getItem('user-theme');
+    if (storedTheme === 'dark' || storedTheme === 'light') {
+      return storedTheme;
+    }
+    
+    // Finally check system preference
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    return prefersDark ? 'dark' : 'light';
+  },
+
+  // Utility method to apply theme to DOM
+  setThemeInDOM: (theme: string) => {
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+      document.documentElement.classList.remove('light');
+    } else {
+      document.documentElement.classList.add('light');
+      document.documentElement.classList.remove('dark');
     }
   }
 }));

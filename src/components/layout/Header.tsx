@@ -1,4 +1,3 @@
-//components/layout/Header.tsx
 import { useEffect, useState } from "react";
 import { useLocation, Link, useNavigate } from "react-router-dom";
 import { Menu, Search, User, Settings, Sun, Moon, LogOut, Crown, CircleUser } from "lucide-react";
@@ -14,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { useUserSettingsStore } from "@/lib/stores/useUserSettingsStore";
 import { useProfileStore } from "@/lib/stores/useProfileStore";
-import { toast } from "react-hot-toast";
+import { toast } from "sonner";
 import { signOut } from "@/lib/api/auth";
 import { useSubscriptionStore } from "@/lib/stores/useSubscriptionStore";
 
@@ -35,9 +34,12 @@ const Header = ({ sidebarOpen, setSidebarOpen }: HeaderProps) => {
   const { profile, fetchProfile, isLoading: isLoadingProfile } = useProfileStore();
   const [avatarError, setAvatarError] = useState(false);
 
-
   // Use user settings for theme preference
-  const [isDarkMode, setIsDarkMode] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    // Check localStorage for initial value to avoid flicker
+    const userTheme = localStorage.getItem('user-theme');
+    return userTheme === 'dark';
+  });
 
   // Check if URL has /dashboard
   const isDashboard = location.pathname.includes("/dashboard");
@@ -50,11 +52,17 @@ const Header = ({ sidebarOpen, setSidebarOpen }: HeaderProps) => {
     }
   }, [user, fetchSettings, fetchProfile]);
 
+  // Update isDarkMode when settings change
   useEffect(() => {
     if (settings?.theme) {
-      const darkModeEnabled = settings.theme === 'dark' || 
-        (settings.theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+      const darkModeEnabled = settings.theme === 'dark';
       setIsDarkMode(darkModeEnabled);
+      
+      // Apply theme to DOM
+      applyTheme(darkModeEnabled);
+      
+      // Store in localStorage for persistence
+      localStorage.setItem('user-theme', darkModeEnabled ? 'dark' : 'light');
     }
   }, [settings]);
   
@@ -68,23 +76,32 @@ const Header = ({ sidebarOpen, setSidebarOpen }: HeaderProps) => {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // Handle theme toggle
-  useEffect(() => {
-    if (isDarkMode) {
+  // Function to apply theme to DOM
+  const applyTheme = (isDark: boolean) => {
+    if (isDark) {
       document.documentElement.classList.add("dark");
+      document.documentElement.classList.remove("light");
     } else {
       document.documentElement.classList.remove("dark");
+      document.documentElement.classList.add("light");
     }
-  }, [isDarkMode]);
+  };
   
   const toggleTheme = () => {
     if (!user) return;
     
-    setIsDarkMode(!isDarkMode);
+    const newIsDarkMode = !isDarkMode;
+    setIsDarkMode(newIsDarkMode);
+    
+    // Apply theme immediately for smoother experience
+    applyTheme(newIsDarkMode);
+    
+    // Store in localStorage immediately
+    localStorage.setItem('user-theme', newIsDarkMode ? 'dark' : 'light');
     
     // Update user settings if logged in
     if (settings) {
-      const newTheme = isDarkMode ? 'light' : 'dark';
+      const newTheme = newIsDarkMode ? 'dark' : 'light';
       // Pass user.id to the updateTheme function
       updateTheme(user.id, newTheme).catch(error => {
         console.error('Failed to update theme preference:', error);
