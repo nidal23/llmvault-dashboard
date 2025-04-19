@@ -1,7 +1,6 @@
-//pages/index.tsx
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ChevronRight, ExternalLink, Cpu, FolderSearch, BrainCircuit, Clock, ZapIcon, Moon, Sun } from "lucide-react";
+import { ChevronRight, ExternalLink, Cpu, FolderSearch, BrainCircuit, Clock, ZapIcon, Moon, Sun, FileText, Sparkles, Link } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import GoogleAuthButton from "@/components/auth/GoogleAuthButton";
 import { useAuth } from "../lib/hooks/useAuth";
@@ -9,25 +8,50 @@ import { toast } from "sonner";
 import ConvoStackHubDiagram from "@/components/home/ConvoStackHubDiagram";
 import dashbordLogo from '@/assets/platforms/convo-stack-logo-bg.png';
 
+const CHROME_EXTENSION_URL = "https://chromewebstore.google.com/detail/convostack/nmhkgpekffdekmnionfgjolgedakmpdk";
+
 const Index = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [isDarkMode, setIsDarkMode] = useState(true); // Default to dark mode
+  
+  // Initialize dark mode from localStorage for non-logged-in users
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    // Check localStorage first
+    const guestTheme = localStorage.getItem('guest-theme');
+    const userTheme = localStorage.getItem('user-theme');
+    
+    // Use guest theme for non-logged-in users, default to dark if not set
+    return (guestTheme || userTheme || 'dark') === 'dark';
+  });
+  
+  // Function to apply theme to DOM
+  const applyTheme = (isDark: boolean) => {
+    if (isDark) {
+      document.documentElement.classList.add('dark');
+      document.documentElement.classList.remove('light');
+    } else {
+      document.documentElement.classList.remove('dark');
+      document.documentElement.classList.add('light');
+    }
+  };
+  
+  // Apply theme on mount and when it changes
+  useEffect(() => {
+    applyTheme(isDarkMode);
+  }, [isDarkMode]);
   
   // Toggle theme function
   const toggleTheme = () => {
-    setIsDarkMode(prev => !prev);
+    const newIsDarkMode = !isDarkMode;
+    setIsDarkMode(newIsDarkMode);
+    
+    // Save theme preference in localStorage for guests
+    localStorage.setItem('guest-theme', newIsDarkMode ? 'dark' : 'light');
+    
+    // Apply theme immediately
+    applyTheme(newIsDarkMode);
   };
-  
-  // Apply theme effect
-  useEffect(() => {
-    if (isDarkMode) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-  }, [isDarkMode]);
   
   const handleAuthSuccess = () => {
     setIsLoggedIn(true);
@@ -60,6 +84,10 @@ const Index = () => {
     e.preventDefault();
     const extensionSection = document.getElementById('extension');
     extensionSection?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  const handleExtensionClick = () => {
+    window.open(CHROME_EXTENSION_URL, '_blank', 'noopener,noreferrer');
   };
 
   return (
@@ -142,7 +170,7 @@ const Index = () => {
                 ) : (
                   <GoogleAuthButton onSuccess={handleAuthSuccess} variant="cta" />
                 )}
-                <Button variant="outline" size="lg" onClick={scrollToExtension}>
+                <Button variant="outline" size="lg" onClick={handleExtensionClick}>
                   Install Extension
                   <ExternalLink className="ml-2 h-4 w-4" />
                 </Button>
@@ -172,7 +200,7 @@ const Index = () => {
             <div className="text-center mb-16 animate-fade-in">
               <h2 className="text-3xl sm:text-4xl font-bold">Never lose your AI wisdom again</h2>
               <p className="mt-4 text-lg text-muted-foreground max-w-2xl mx-auto">
-                ConvoStack helps you organize your AI conversations so you can quickly find exactly what you need, when you need it.
+                ConvoStack helps you organize your AI conversations and prompts so you can quickly find exactly what you need, when you need it.
               </p>
             </div>
             
@@ -197,6 +225,11 @@ const Index = () => {
                   title: "Context Retention",
                   description: "Add notes to your bookmarks to remember why a particular conversation was valuable to you.",
                   icon: <Cpu className="w-8 h-8 text-primary" />,
+                },
+                {
+                  title: "Prompt Library",
+                  description: "Save and organize effective prompts that consistently deliver great results from your AI assistants.",
+                  icon: <FileText className="w-8 h-8 text-primary" />,
                 },
                 {
                   title: "Productivity Boost",
@@ -274,28 +307,119 @@ const Index = () => {
           </div>
         </section>
         
+        {/* Prompt Library Section */}
+        <section className="py-20 bg-muted/20">
+          <div className="px-4 sm:px-6 md:px-8 lg:px-16 max-w-7xl mx-auto">
+            <div className="text-center mb-16 animate-fade-in">
+              <h2 className="text-3xl sm:text-4xl font-bold relative inline-flex items-center">
+                Prompt Library
+                <span className="ml-3 px-3 py-1 text-xs font-semibold rounded-full bg-amber-100 text-amber-700 dark:bg-amber-700/20 dark:text-amber-400">
+                  Coming Soon
+                </span>
+              </h2>
+              <p className="mt-4 text-lg text-muted-foreground max-w-2xl mx-auto">
+                Never start from scratch. Store, organize, and reuse your most effective prompts.
+              </p>
+            </div>
+            
+            <div className="grid md:grid-cols-2 gap-12 items-center">
+              <div className="order-2 md:order-1 space-y-6 animate-fade-in">
+                <div className="flex gap-4 items-start">
+                  <div className="w-12 h-12 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                    <FileText className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h4 className="text-lg font-medium mb-1">Template Library</h4>
+                    <p className="text-muted-foreground">Create and categorize prompt templates for different tasks and AI assistants.</p>
+                  </div>
+                </div>
+                
+                <div className="flex gap-4 items-start">
+                  <div className="w-12 h-12 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                    <Sparkles className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h4 className="text-lg font-medium mb-1">Prompt Generation</h4>
+                    <p className="text-muted-foreground">Get AI-powered help to craft the perfect prompt for any task you want to accomplish.</p>
+                  </div>
+                </div>
+                
+                <div className="flex gap-4 items-start">
+                  <div className="w-12 h-12 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                    <Link className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h4 className="text-lg font-medium mb-1">Link to Conversations</h4>
+                    <p className="text-muted-foreground">Connect prompt templates to the conversations they created for a complete knowledge system.</p>
+                  </div>
+                </div>
+                
+                <div className="flex gap-4 items-start">
+                  <div className="w-12 h-12 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                    <BrainCircuit className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h4 className="text-lg font-medium mb-1">Usage Analytics</h4>
+                    <p className="text-muted-foreground">Track which prompts deliver the best results and optimize your approach to AI.</p>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="order-1 md:order-2 animate-fade-in">
+                <div className="apple-card p-6 rounded-xl shadow-lg relative">
+                  <div className="bg-primary/5 p-4 rounded-lg mb-4 border border-primary/10">
+                    <h4 className="font-medium mb-2 text-primary flex items-center">
+                      <FileText className="h-4 w-4 mr-2" />
+                      Code Review Prompt
+                    </h4>
+                    <p className="text-sm text-muted-foreground mb-3">Provides detailed feedback for code review with security and best practice suggestions.</p>
+                    <div className="bg-muted p-3 rounded-md text-sm text-muted-foreground">
+                      I want you to review the following code for best practices, potential bugs, security issues, and performance optimizations. Please organize your feedback into these categories and provide specific examples and solutions.
+                    </div>
+                    <div className="flex justify-between items-center mt-3">
+                      <div className="flex gap-1">
+                        <span className="text-xs px-2 py-0.5 bg-primary/10 text-primary rounded-full">coding</span>
+                        <span className="text-xs px-2 py-0.5 bg-primary/10 text-primary rounded-full">review</span>
+                      </div>
+                      <span className="text-xs text-muted-foreground">Used 28 times</span>
+                    </div>
+                  </div>
+                  
+                  <div className="flex justify-between">
+                    <p className="text-sm text-muted-foreground">Save, organize and reuse your best prompts</p>
+                    <Button size="sm" className="gap-1" disabled>
+                      <FileText className="h-3.5 w-3.5" />
+                      View Library
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+        
         {/* Chrome Extension Section */}
         <section id="extension" className="py-20 bg-muted/50">
           <div className="px-4 sm:px-6 md:px-8 lg:px-16 max-w-7xl mx-auto">
             <div className="text-center mb-16 animate-fade-in">
               <h2 className="text-3xl sm:text-4xl font-bold">Get the ConvoStack Extension</h2>
               <p className="mt-4 text-lg text-muted-foreground max-w-2xl mx-auto">
-                The free ConvoStack Chrome extension is the key to organizing your AI conversations.
+                The ConvoStack Chrome extension is the key to organizing your AI conversations.
               </p>
             </div>
             
             <div className="flex flex-col md:flex-row items-center justify-center gap-12 max-w-4xl mx-auto">
               <div className="md:w-1/2 flex justify-center">
                 <div className="apple-card p-6 w-full max-w-md animate-fade-in">
-                  <div className="aspect-video bg-card flex items-center justify-center rounded-lg mb-6 overflow-hidden">
-                    <img 
-                      src="https://placehold.co/600x400/3b82f6/ffffff?text=Chrome+Extension" 
-                      alt="ConvoStack Chrome Extension" 
-                      className="w-full h-auto"
-                    />
+                  <div className="rounded-lg mb-6 flex flex-col items-center">
+                    <div className="w-20 h-20 bg-primary/10 mb-4 rounded-full flex items-center justify-center">
+                      <BrainCircuit className="w-10 h-10 text-primary" />
+                    </div>
+                    <div className="text-center mb-4">
+                      <h3 className="text-2xl font-semibold mb-2">ConvoStack Chrome Extension</h3>
+                      <p className="text-muted-foreground">Organize your AI conversations with one click</p>
+                    </div>
                   </div>
-                  
-                  <h3 className="text-2xl font-semibold mb-4 text-center">Chrome Extension</h3>
                   
                   <ul className="space-y-3 mb-6">
                     <li className="flex gap-2">
@@ -314,10 +438,19 @@ const Index = () => {
                       <div className="text-primary">✓</div>
                       <span>Organize into custom folders</span>
                     </li>
+                    <li className="flex gap-2">
+                      <div className="text-primary">✓</div>
+                      <span>Save effective prompts to your library</span>
+                    </li>
                   </ul>
                   
-                  <Button className="apple-button w-full" size="lg">
-                    Coming Soon to Chrome Store
+                  <Button 
+                    className="apple-button w-full" 
+                    size="lg"
+                    onClick={handleExtensionClick}
+                  >
+                    <ExternalLink className="mr-2 h-4 w-4" />
+                    Install from Chrome Store
                   </Button>
                 </div>
               </div>
