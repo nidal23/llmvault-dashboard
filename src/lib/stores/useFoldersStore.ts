@@ -99,20 +99,24 @@ export const useFoldersStore = create<FoldersState>()(
         const updatedFolders = [...folders, optimisticFolder];
         set({ 
           folders: updatedFolders,
-          folderTree: buildFolderTree(updatedFolders)
+          folderTree: buildFolderTree(updatedFolders),
+          lastFetchTime: Date.now()
         });
         
         try {
           const newFolder = await withTimeout(createFolder(userId, name, parentId), 10000);
           
+          const currentFolders = get().folders;
           // Replace optimistic folder with real one
-          const updatedWithRealFolder = folders.map(folder => 
+          const updatedWithRealFolder = currentFolders.map(folder => 
             folder.id === tempId ? { ...newFolder, bookmarkCount: 0 } : folder
           );
+      
           
           set({ 
             folders: updatedWithRealFolder,
-            folderTree: buildFolderTree(updatedWithRealFolder)
+            folderTree: buildFolderTree(updatedWithRealFolder),
+            lastFetchTime: Date.now() // Update again to ensure subscribers notice
           });
           
           toast.success('Folder created successfully');
@@ -120,10 +124,13 @@ export const useFoldersStore = create<FoldersState>()(
         } catch (err) {
           console.error('Error creating folder:', err);
           
+          // Get the latest state for the rollback
+          const currentFolders = get().folders;
           // Remove optimistic folder on error
           set({ 
-            folders: folders,
-            folderTree: buildFolderTree(folders)
+            folders: currentFolders.filter(f => f.id !== tempId),
+            folderTree: buildFolderTree(currentFolders.filter(f => f.id !== tempId)),
+            lastFetchTime: Date.now() // Update timestamp
           });
           
           if (err instanceof Error && err.message.includes('Free tier users are limited to 5 folders')) {
@@ -265,7 +272,10 @@ export const useFoldersStore = create<FoldersState>()(
     }),
     {
       name: 'folders-storage', // unique name for localStorage
-      partialize: (state) => ({ folders: state.folders }), // only persist folders array
+      partialize: (state) => ({ 
+        folders: state.folders,
+        lastFetchTime: state.lastFetchTime 
+      }), // only persist folders array
     }
   )
 );

@@ -1,19 +1,14 @@
 import BookmarkList from "@/components/bookmarks/BookmarkList";
 import FolderTree from "@/components/folders/FolderTree";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { useState, useEffect, useCallback } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import Layout from "@/components/layout/Layout";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { useBookmarksStore } from "@/lib/stores/useBookmarksStore";
-import { Loader2 } from "lucide-react";
+import { Loader2, ChevronLeft, ChevronRight } from "lucide-react";
 import { useFoldersStore } from "@/lib/stores/useFoldersStore";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 const Bookmarks = () => {
   const location = useLocation();
@@ -25,6 +20,9 @@ const Bookmarks = () => {
   const [selectedFolder, setSelectedFolder] = useState<string | null>(folderParam);
   const [selectedFolderName, setSelectedFolderName] = useState<string | null>(null);
   const [urlUpdateNeeded, setUrlUpdateNeeded] = useState<boolean>(false);
+  
+  // Add state for collapsible folder panel
+  const [folderPanelExpanded, setFolderPanelExpanded] = useState(true);
 
   const { 
     folders, 
@@ -126,31 +124,80 @@ const Bookmarks = () => {
     
     // Flag that we need to update the URL (will be handled by the effect)
     setUrlUpdateNeeded(true);
+    
+    // On small screens, auto-collapse the folder panel after selection
+    if (window.innerWidth < 1024) {
+      setFolderPanelExpanded(false);
+    }
   }, [updateFilters, fetchBookmarks, user]);
+  
+  // Toggle folder panel expansion
+  const toggleFolderPanel = () => {
+    setFolderPanelExpanded(!folderPanelExpanded);
+  };
   
   return (
     <Layout>
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        <div className="lg:col-span-1">
-          <Card className="glass-card">
-            <CardHeader>
-              <CardTitle>Folders</CardTitle>
-              <CardDescription>
-                {selectedFolderName 
-                  ? `Viewing ${selectedFolderName}`
-                  : "Browse your organized folders"
-                }
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
+      <div className="h-full flex flex-col">
+        {/* Breadcrumb navigation and folder toggle */}
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center">
+            <h1 className="text-2xl font-bold">
+              {selectedFolderName ? selectedFolderName : "All Conversations"}
+            </h1>
+          </div>
+          
+          {/* Responsive toggle button for folder panel */}
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={toggleFolderPanel}
+            className="lg:hidden"
+            aria-label={folderPanelExpanded ? "Hide folders" : "Show folders"}
+          >
+            Folders {folderPanelExpanded ? <ChevronLeft className="ml-1 h-4 w-4" /> : <ChevronRight className="ml-1 h-4 w-4" />}
+          </Button>
+        </div>
+        
+        {/* Main content area with flexible layout */}
+        <div className="flex-1 flex overflow-hidden">
+          {/* Folder panel - collapsible on mobile, fixed width on desktop */}
+          <div 
+            className={cn(
+              "transition-all duration-300 ease-in-out border-r border-border overflow-y-auto",
+              folderPanelExpanded ? "w-full lg:w-80 xl:w-96" : "w-0 lg:w-14 opacity-0 lg:opacity-100",
+              "lg:flex flex-col",
+              folderPanelExpanded ? "flex" : "hidden lg:flex"
+            )}
+          >
+            <div className={cn(
+              "p-4 h-full transition-opacity duration-300",
+              folderPanelExpanded ? "opacity-100" : "opacity-0 lg:opacity-100"
+            )}>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="font-semibold text-lg">
+                  Folders
+                </h2>
+                {/* Desktop toggle for folder panel */}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="hidden lg:flex"
+                  onClick={toggleFolderPanel}
+                  aria-label={folderPanelExpanded ? "Collapse folders" : "Expand folders"}
+                >
+                  {folderPanelExpanded ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                </Button>
+              </div>
+              
               {isLoadingFolders ? (
-                <div className="flex items-center justify-center py-4">
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                  <span className="text-sm">Loading folders...</span>
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                  <span>Loading folders...</span>
                 </div>
               ) : foldersError ? (
-                <div className="text-center py-4 text-red-500">
-                  <p className="text-sm">Error loading folders</p>
+                <div className="text-center py-8 text-red-500">
+                  <p>Error loading folders</p>
                 </div>
               ) : folders.length > 0 ? (
                 <FolderTree 
@@ -160,36 +207,55 @@ const Bookmarks = () => {
                 />
               ) : (
                 <div className="text-center py-8">
-                  <p className="text-sm text-muted-foreground">No folders yet</p>
+                  <p className="text-muted-foreground">No folders yet</p>
                 </div>
               )}
-            </CardContent>
-          </Card>
-        </div>
-        
-        <div className="lg:col-span-3">
-          {isLoadingBookmarks ? (
-            <div className="flex items-center justify-center py-4">
-              <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              <span className="text-sm">Loading conversations...</span>
             </div>
-          ) : bookmarksError ? (
-            <div className="flex items-center justify-center py-4 text-red-500">
-              <p>Error loading conversations</p>
-            </div>
-          ) : (
-            <BookmarkList 
-              bookmarks={bookmarks} 
-              folderId={selectedFolder || undefined}
-              folderName={selectedFolderName || undefined}
-              onBookmarksChange={() => {
-                // This ensures we refresh folder counts when a bookmark is created/updated/deleted
-                if (user) {
-                  fetchFolders(user.id);
-                }
-              }}
-            />
-          )}
+            
+            {/* Collapsed state toggle button (desktop only) */}
+            {!folderPanelExpanded && (
+              <div className="hidden lg:flex h-full items-center justify-center">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 rounded-full"
+                  onClick={toggleFolderPanel}
+                  aria-label="Expand folders"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
+          </div>
+          
+          {/* Bookmark content - takes remaining space */}
+          <div className={cn(
+            "flex-1 transition-all duration-300 p-2 sm:p-4 overflow-auto",
+            folderPanelExpanded ? "lg:ml-0" : "lg:ml-0"
+          )}>
+            {isLoadingBookmarks ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                <span>Loading conversations...</span>
+              </div>
+            ) : bookmarksError ? (
+              <div className="flex items-center justify-center py-8 text-red-500">
+                <p>Error loading conversations</p>
+              </div>
+            ) : (
+              <BookmarkList 
+                bookmarks={bookmarks} 
+                folderId={selectedFolder || undefined}
+                folderName={selectedFolderName || undefined}
+                onBookmarksChange={() => {
+                  // This ensures we refresh folder counts when a bookmark is created/updated/deleted
+                  if (user) {
+                    fetchFolders(user.id);
+                  }
+                }}
+              />
+            )}
+          </div>
         </div>
       </div>
     </Layout>

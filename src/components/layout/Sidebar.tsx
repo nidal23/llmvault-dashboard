@@ -1,5 +1,4 @@
-//components/layout/Sidebar.tsx
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { 
   LayoutDashboard,
@@ -30,6 +29,7 @@ import { Label } from "@/components/ui/label";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { useFoldersStore } from '@/lib/stores/useFoldersStore';
 import { toast } from "react-hot-toast";
+import TreeFolderSelector from "@/components/bookmarks/TreeFolderSelector";
 
 interface SidebarProps {
   open: boolean;
@@ -40,6 +40,8 @@ const Sidebar = ({ open, onOpenChange }: SidebarProps) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useAuth();
+
+  const lastFetchTime = useFoldersStore(state => state.lastFetchTime);
   
   const [isNewFolderOpen, setIsNewFolderOpen] = useState(false);
   const [expandedFolders, setExpandedFolders] = useState<string[]>([]);
@@ -60,6 +62,21 @@ const Sidebar = ({ open, onOpenChange }: SidebarProps) => {
     fetchFolders
   } = useFoldersStore();
 
+  const prevTimeRef = useRef(lastFetchTime);
+
+  useEffect(() => {
+    if (user) {
+      // Only fetch if lastFetchTime has actually changed
+      if (lastFetchTime !== prevTimeRef.current) {
+        fetchFolders(user.id);
+        prevTimeRef.current = lastFetchTime;
+      } else if (folders.length === 0) {
+        // Initial fetch if no folders are loaded
+        fetchFolders(user.id);
+      }
+    }
+  }, [user, fetchFolders, lastFetchTime, folders.length]);
+  
   useEffect(() => {
     if (user) {
       fetchFolders(user.id);
@@ -197,7 +214,7 @@ const Sidebar = ({ open, onOpenChange }: SidebarProps) => {
     
     setDraggedFolderId(null);
     setDropTargetId(null);
-  }, [getAllDescendants, moveFolder, user.id]);
+  }, [getAllDescendants, moveFolder, user?.id]);
   
   // Create a recursive function to render folders
   const renderFolderTree = (parentId: string | null) => {
@@ -362,7 +379,7 @@ const Sidebar = ({ open, onOpenChange }: SidebarProps) => {
                 <DialogHeader>
                   <DialogTitle>New Folder</DialogTitle>
                   <DialogDescription>
-                    Create a new folder to organize your bookmarks.
+                    Create a new folder to organize your conversations.
                   </DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
@@ -376,29 +393,54 @@ const Sidebar = ({ open, onOpenChange }: SidebarProps) => {
                       className="col-span-3"
                       value={newFolderName}
                       onChange={(e) => setNewFolderName(e.target.value)}
+                      autoFocus
                     />
                   </div>
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="parent" className="text-right">
                       Parent
                     </Label>
-                    <select
-                      id="parent"
-                      className="col-span-3 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm"
-                      value={parentFolderId || ""}
-                      onChange={(e) => setParentFolderId(e.target.value || null)}
-                    >
-                      <option value="">None (Root folder)</option>
-                      {folders.map(folder => (
-                        <option key={folder.id} value={folder.id}>
-                          {folder.name}
-                        </option>
-                      ))}
-                    </select>
+                    <div className="col-span-3">
+                      {/* Using the Tree Folder Selector instead of a basic dropdown */}
+                      <TreeFolderSelector
+                        folders={folders}
+                        selectedFolderId={parentFolderId || ""}
+                        onSelect={(id) => setParentFolderId(id === "" ? null : id)}
+                        placeholder="None (Root folder)"
+                        className="w-full"
+                      />
+                      {/* Show an option to reset to root */}
+                      {parentFolderId && (
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="mt-1 text-xs text-muted-foreground"
+                          onClick={() => setParentFolderId(null)}
+                        >
+                          Clear parent (Make root folder)
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 </div>
                 <DialogFooter>
-                  <Button type="submit" onClick={submitCreateFolder}>Create</Button>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => {
+                      setIsNewFolderOpen(false);
+                      setNewFolderName("");
+                      setParentFolderId(null);
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button 
+                    type="submit" 
+                    onClick={submitCreateFolder}
+                    disabled={!newFolderName.trim()}
+                  >
+                    Create
+                  </Button>
                 </DialogFooter>
               </DialogContent>
             </Dialog>
