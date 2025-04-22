@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { FolderWithCount } from "@/lib/supabase/database.types";
+import TreeFolderSelector from "../bookmarks/TreeFolderSelector";
 
 // New Folder Dialog Content
 export const NewFolderDialogContent = memo(({
@@ -62,19 +63,25 @@ export const NewFolderDialogContent = memo(({
             Parent
           </Label>
           <div className="col-span-3">
-            <select
-              id="parent-folder"
-              className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm"
-              value={parentFolderId || ""}
-              onChange={(e) => setParentFolderId(e.target.value || null)}
-            >
-              <option value="">None (Root folder)</option>
-              {visibleFolders.map(folder => (
-                <option key={folder.id} value={folder.id}>
-                  {folder.name}
-                </option>
-              ))}
-            </select>
+            {/* Tree Folder Selector for selecting parent folder */}
+            <TreeFolderSelector
+              folders={visibleFolders}
+              selectedFolderId={parentFolderId || ""}
+              onSelect={(id) => setParentFolderId(id === "" ? null : id)}
+              placeholder="None (Root folder)"
+              className="w-full"
+            />
+            {/* Show an option to reset to root */}
+            {parentFolderId && (
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="mt-1 text-xs text-muted-foreground"
+                onClick={() => setParentFolderId(null)}
+              >
+                Clear parent (Make root folder)
+              </Button>
+            )}
           </div>
         </div>
       </div>
@@ -88,7 +95,7 @@ export const NewFolderDialogContent = memo(({
         <Button 
           type="submit" 
           onClick={handleCreateFolder}
-          disabled={isSubmitting || isFetching}
+          disabled={isSubmitting || isFetching || !folderName.trim()}
         >
           {isSubmitting ? (
             <>
@@ -151,7 +158,7 @@ export const EditFolderDialogContent = memo(({
         <Button 
           type="submit" 
           onClick={handleEditFolder}
-          disabled={isSubmitting || isFetching}
+          disabled={isSubmitting || isFetching || !folderName.trim()}
         >
           {isSubmitting ? (
             <>

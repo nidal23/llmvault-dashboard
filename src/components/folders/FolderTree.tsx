@@ -402,6 +402,7 @@ const FolderTree = ({ folders, selectedFolder, onFolderSelect }: FolderTreeProps
         <FolderItem
           key={folder.id}
           folder={folder}
+          allFolders={folders} // Pass all folders for subfolder count
           depth={depth}
           hasChildren={hasChildren}
           canShowChildren={canShowChildren}
@@ -491,13 +492,15 @@ const FolderTree = ({ folders, selectedFolder, onFolderSelect }: FolderTreeProps
       </div>
       
       {/* Render folders based on the current view */}
-      {renderFolderItems(null, 0)}
+      <div className="space-y-0.5">
+        {renderFolderItems(null, 0)}
+      </div>
       
       {folders.length > 0 && (
         <Button 
-          variant="ghost" 
+          variant="outline" 
           size="sm" 
-          className="mt-2 w-full text-muted-foreground"
+          className="mt-4 w-full text-muted-foreground border-dashed"
           onClick={() => openNewFolderDialog(null)}
         >
           <Plus className="mr-2 h-4 w-4" />
