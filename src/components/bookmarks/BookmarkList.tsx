@@ -8,7 +8,8 @@ import {
   Tag,
   X,
   LayoutGrid,
-  List
+  List,
+  FolderTree as FolderTreeIcon
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,6 +37,18 @@ import { useAuth } from "@/lib/hooks/useAuth";
 import BookmarkCard from "./BookmarkCard";
 import { cn } from "@/lib/utils";
 import AddBookmarkModal from './AddBookmarkModal';
+import { useLocation, useNavigate } from "react-router-dom";
+import { 
+  Pagination, 
+  PaginationContent, 
+  PaginationItem, 
+  PaginationLink, 
+  PaginationNext, 
+  PaginationPrevious 
+} from "@/components/ui/pagination";
+
+// Import our new SubFolderView component
+import SubFolderView from "@/components/bookmarks/SubFolderView";
 
 interface BookmarkListProps {
   bookmarks: BookmarkWithFolder[];
@@ -44,7 +57,13 @@ interface BookmarkListProps {
   onBookmarksChange?: () => void; // Callback for when bookmarks are modified
 }
 
+const BOOKMARKS_PER_PAGE = 9;
+
 const BookmarkList = ({ bookmarks, folderId, folderName, onBookmarksChange }: BookmarkListProps) => {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const searchParams = new URLSearchParams(location.search);
+  
   const { folders } = useFoldersStore();
   const { createBookmark, fetchBookmarks, updateFilters } = useBookmarksStore();
   const { settings, fetchSettings } = useUserSettingsStore();
@@ -55,6 +74,10 @@ const BookmarkList = ({ bookmarks, folderId, folderName, onBookmarksChange }: Bo
   const [filterPlatform, setFilterPlatform] = useState("all");
   const [filterLabel, setFilterLabel] = useState("all");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  
+  // Pagination state
+  const pageParam = searchParams.get('page');
+  const [currentPage, setCurrentPage] = useState<number>(pageParam ? parseInt(pageParam) : 1);
   
   // New bookmark dialog state
   const [isNewBookmarkOpen, setIsNewBookmarkOpen] = useState(false);
@@ -69,6 +92,16 @@ const BookmarkList = ({ bookmarks, folderId, folderName, onBookmarksChange }: Bo
     
     return [];
   };
+  
+  // Update current page when URL changes
+  useEffect(() => {
+    const pageParam = searchParams.get('page');
+    if (pageParam) {
+      setCurrentPage(parseInt(pageParam));
+    } else {
+      setCurrentPage(1);
+    }
+  }, [location.search]);
   
   // Extract platforms and labels from user settings
   const availablePlatforms = useMemo(() => {
@@ -132,9 +165,30 @@ const BookmarkList = ({ bookmarks, folderId, folderName, onBookmarksChange }: Bo
         return 0;
     }
   });
+  
+  // Calculate pagination
+  const totalPages = Math.max(1, Math.ceil(sortedBookmarks.length / BOOKMARKS_PER_PAGE));
+  
+  // Ensure current page is within bounds
+  useEffect(() => {
+    if (currentPage > totalPages && totalPages > 0) {
+      handlePageChange(1);
+    }
+  }, [totalPages]);
+  
+  // Get paginated bookmarks based on current page
+  const paginatedBookmarks = sortedBookmarks.slice(
+    (currentPage - 1) * BOOKMARKS_PER_PAGE,
+    currentPage * BOOKMARKS_PER_PAGE
+  );
 
   const handleSearch = (searchTerm: string) => {
     setSearch(searchTerm);
+    
+    // Reset to page 1 when searching
+    if (currentPage !== 1) {
+      handlePageChange(1);
+    }
     
     // For global search, update the store filters and fetch
     if (searchTerm.length > 2) {
@@ -202,6 +256,40 @@ const BookmarkList = ({ bookmarks, folderId, folderName, onBookmarksChange }: Bo
     setViewMode(viewMode === "grid" ? "list" : "grid");
   };
   
+  // Handle page change with proper URL update
+  const handlePageChange = (page: number) => {
+    if (page === currentPage) return;
+    
+    setCurrentPage(page);
+    
+    // Build the new URL
+    let newUrl = '';
+    
+    // Start with folder parameter if present
+    if (folderId) {
+      newUrl = `?folder=${folderId}`;
+    }
+    
+    // Add page parameter if not page 1
+    if (page > 1) {
+      newUrl += newUrl.includes('?') ? `&page=${page}` : `?page=${page}`;
+    }
+    
+    // Navigate with the new URL
+    navigate(newUrl, { replace: true });
+    
+    // Scroll to top when changing pages
+    window.scrollTo(0, 0);
+  };
+  
+  // Handle filter or sort change
+  const handleFilterOrSortChange = () => {
+    // Reset to page 1 when filters or sort changes
+    if (currentPage !== 1) {
+      handlePageChange(1);
+    }
+  };
+  
   return (
     <div className="w-full animate-fade-in">
       <div className="flex flex-col gap-4">
@@ -215,7 +303,7 @@ const BookmarkList = ({ bookmarks, folderId, folderName, onBookmarksChange }: Bo
             onClick={openNewBookmarkDialog}
           >
             <Plus className="mr-2 h-4 w-4" />
-            Add Bookmark
+            Add Conversation
           </Button>
         </div>
         
@@ -231,7 +319,13 @@ const BookmarkList = ({ bookmarks, folderId, folderName, onBookmarksChange }: Bo
           </div>
           
           <div className="flex gap-2 flex-wrap sm:flex-nowrap">
-            <Select value={filterPlatform} onValueChange={setFilterPlatform}>
+            <Select 
+              value={filterPlatform} 
+              onValueChange={(value) => {
+                setFilterPlatform(value);
+                handleFilterOrSortChange();
+              }}
+            >
               <SelectTrigger className="w-32 dark:border-gray-700 dark:bg-gray-800/50">
                 <SelectValue placeholder="Platform" />
               </SelectTrigger>
@@ -247,7 +341,13 @@ const BookmarkList = ({ bookmarks, folderId, folderName, onBookmarksChange }: Bo
               </SelectContent>
             </Select>
             
-            <Select value={filterLabel} onValueChange={setFilterLabel}>
+            <Select 
+              value={filterLabel} 
+              onValueChange={(value) => {
+                setFilterLabel(value);
+                handleFilterOrSortChange();
+              }}
+            >
               <SelectTrigger className="w-32 dark:border-gray-700 dark:bg-gray-800/50">
                 <SelectValue placeholder="Label" />
               </SelectTrigger>
@@ -267,7 +367,13 @@ const BookmarkList = ({ bookmarks, folderId, folderName, onBookmarksChange }: Bo
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="glass-card">
-                <DropdownMenuRadioGroup value={sortBy} onValueChange={setSortBy}>
+                <DropdownMenuRadioGroup 
+                  value={sortBy} 
+                  onValueChange={(value) => {
+                    setSortBy(value);
+                    handleFilterOrSortChange();
+                  }}
+                >
                   <DropdownMenuRadioItem value="newest">Newest</DropdownMenuRadioItem>
                   <DropdownMenuRadioItem value="oldest">Oldest</DropdownMenuRadioItem>
                   <DropdownMenuRadioItem value="alphabetical">Alphabetical</DropdownMenuRadioItem>
@@ -291,73 +397,156 @@ const BookmarkList = ({ bookmarks, folderId, folderName, onBookmarksChange }: Bo
           </div>
         </div>
         
-        {/* Stats bar */}
-        <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-          <div className="flex items-center gap-1.5">
-            <BookmarkIcon className="h-4 w-4" />
-            <span>{sortedBookmarks.length} conversations</span>
+        {/* Stats bar with total count and pagination info */}
+        <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5">
+              <BookmarkIcon className="h-4 w-4" />
+              <span>{filteredBookmarks.length} conversations</span>
+              {filteredBookmarks.length > BOOKMARKS_PER_PAGE && (
+                <span className="text-xs opacity-70">
+                  (showing {((currentPage - 1) * BOOKMARKS_PER_PAGE) + 1}-
+                  {Math.min(currentPage * BOOKMARKS_PER_PAGE, filteredBookmarks.length)} of {filteredBookmarks.length})
+                </span>
+              )}
+            </div>
+            
+            {filterPlatform !== "all" && (
+              <Badge variant="outline" className="flex items-center gap-1.5">
+                <SlidersHorizontal className="h-3 w-3" />
+                <span>{filterPlatform}</span>
+                <X 
+                  className="h-3 w-3 ml-1 cursor-pointer" 
+                  onClick={() => {
+                    setFilterPlatform("all");
+                    handleFilterOrSortChange();
+                  }}
+                />
+              </Badge>
+            )}
+            
+            {filterLabel !== "all" && (
+              <Badge variant="outline" className="flex items-center gap-1.5">
+                <Tag className="h-3 w-3" />
+                <span>{filterLabel}</span>
+                <X 
+                  className="h-3 w-3 ml-1 cursor-pointer" 
+                  onClick={() => {
+                    setFilterLabel("all");
+                    handleFilterOrSortChange();
+                  }}
+                />
+              </Badge>
+            )}
+            
+            {/* Show folder badge if we're in a folder */}
+            {folderId && folderName && (
+              <Badge variant="outline" className="flex items-center gap-1.5 border-amber-500 bg-amber-500/10">
+                <FolderTreeIcon className="h-3 w-3 text-amber-500" />
+                <span className="text-amber-700 dark:text-amber-300">{folderName}</span>
+              </Badge>
+            )}
           </div>
           
-          {filterPlatform !== "all" && (
-            <Badge variant="outline" className="flex items-center gap-1.5">
-              <SlidersHorizontal className="h-3 w-3" />
-              <span>{filterPlatform}</span>
-              <X 
-                className="h-3 w-3 ml-1 cursor-pointer" 
-                onClick={() => setFilterPlatform("all")}
-              />
-            </Badge>
-          )}
-          
-          {filterLabel !== "all" && (
-            <Badge variant="outline" className="flex items-center gap-1.5">
-              <Tag className="h-3 w-3" />
-              <span>{filterLabel}</span>
-              <X 
-                className="h-3 w-3 ml-1 cursor-pointer" 
-                onClick={() => setFilterLabel("all")}
-              />
-            </Badge>
+          {/* Mini pagination info for mobile */}
+          {totalPages > 1 && (
+            <div className="sm:hidden text-xs">
+              Page {currentPage} of {totalPages}
+            </div>
           )}
         </div>
       </div>
+      
+      {/* SubFolderView - Show subfolders of the current folder if one is selected */}
+      {folderId && folders && folders.length > 0 && (
+        <SubFolderView 
+          folders={folders}
+          currentFolderId={folderId}
+          maxDepth={2} // Show up to grandchildren
+        />
+      )}
       
       {sortedBookmarks.length === 0 ? (
         <div className="mt-8 flex h-60 flex-col items-center justify-center rounded-lg border border-dashed p-8 text-center animate-fade-in">
           <BookmarkIcon className="h-10 w-10 text-muted-foreground/60" />
           <h3 className="mt-4 text-lg font-semibold">No conversations found</h3>
           <p className="mt-2 text-sm text-muted-foreground">
-            {search ? "Try adjusting your search or filters" : "Get started by adding your first bookmark"}
+            {search || filterPlatform !== "all" || filterLabel !== "all" 
+              ? "Try adjusting your search or filters" 
+              : "Get started by adding your first conversation"}
           </p>
           <Button 
-            className="mt-4" 
+            className="mt-4 text-primary/70 hover:text-primary cursor-pointer" 
             variant="outline" 
             onClick={openNewBookmarkDialog}
           >
             <Plus className="mr-2 h-4 w-4" />
-            Add Bookmark
+            Add Conversation
           </Button>
         </div>
       ) : (
-        <div className={cn(
-          "mt-6",
-          viewMode === "grid" 
-            ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-4" 
-            : "flex flex-col gap-3"
-        )}>
-          {sortedBookmarks.map((bookmark) => (
-            <div key={bookmark.id} className={cn(
-              "animate-scale-in",
-              viewMode === "list" && "max-w-none"
-            )}>
-              <BookmarkCard 
-                bookmark={bookmark} 
-                onBookmarkChange={onBookmarksChange}
-                viewMode={viewMode}
-              />
+        <>
+          <div className={cn(
+            "mt-6",
+            viewMode === "grid" 
+              ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-4" 
+              : "flex flex-col gap-3"
+          )}>
+            {paginatedBookmarks.map((bookmark) => (
+              <div key={bookmark.id} className={cn(
+                "animate-scale-in",
+                viewMode === "list" && "max-w-none"
+              )}>
+                <BookmarkCard 
+                  bookmark={bookmark} 
+                  onBookmarkChange={onBookmarksChange}
+                  viewMode={viewMode}
+                />
+              </div>
+            ))}
+          </div>
+          
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex justify-center mt-6">
+              <Pagination>
+                <PaginationContent>
+                  {/* Previous page button */}
+                  <PaginationItem>
+                    <PaginationPrevious 
+                      onClick={() => currentPage > 1 && handlePageChange(currentPage - 1)}
+                      className={currentPage <= 1 ? "pointer-events-none opacity-50" : "cursor-pointer"} 
+                    />
+                  </PaginationItem>
+                  
+                  {/* Page numbers with enhanced highlighting */}
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                    <PaginationItem key={page}>
+                      <PaginationLink
+                        isActive={page === currentPage}
+                        onClick={() => handlePageChange(page)}
+                        className={cn(
+                          "cursor-pointer",
+                          page === currentPage && "bg-primary text-primary-foreground hover:bg-primary/90 font-medium"
+                        )}
+                      >
+                        {page}
+                      </PaginationLink>
+                    </PaginationItem>
+                  ))}
+                  
+                  {/* Next page button */}
+                  <PaginationItem>
+                    <PaginationNext 
+                      onClick={() => currentPage < totalPages && handlePageChange(currentPage + 1)}
+                      className={currentPage >= totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"} 
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
             </div>
-          ))}
-        </div>
+          )}
+        </>
       )}
       
       {/* Enhanced Add Bookmark Modal */}
