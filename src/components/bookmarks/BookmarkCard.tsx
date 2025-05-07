@@ -7,7 +7,8 @@ import {
   Tag, 
   Trash,
   MessageSquare,
-  Loader2
+  Loader2,
+  FolderTree
 } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { Button } from "@/components/ui/button";
@@ -234,45 +235,7 @@ const BookmarkCard = ({ bookmark, viewMode = "grid", onBookmarkChange }: Bookmar
     toast.success("Link copied to clipboard!");
   };
   
-  // const handleDelete = async () => {
-  //   if (!user) {
-  //     toast.error('You must be logged in to update bookmarks');
-  //     return;
-  //   }
-    
-  //   if (!bookmark?.id) {
-  //     toast.error('Unable to update bookmark');
-  //     return;
-  //   }
-
-  //   setIsSubmitting(true);
-
-  //   try {
-  //     await updateBookmark(user.id, bookmark.id, {
-  //       title: editTitle,
-  //       url: editUrl,
-  //       folder_id: editFolder,
-  //       platform: editPlatform || null,
-  //       label: editLabel || null,
-  //       notes: editNotes || null
-  //     });
-      
-  //     // Notify parent about changes
-  //     if (onBookmarkChange) {
-  //       onBookmarkChange();
-  //     }
-      
-  //     setIsEditDialogOpen(false);
-  //   } catch (error) {
-  //     console.log('error: ', error);
-  //     // Error handled in store
-  //   } finally {
-  //     setIsSubmitting(false);
-  //   }
-  // };
-  
   // Open edit dialog and ensure form state is updated
-  
   const openEditDialog = () => {
     setEditTitle(bookmark.title);
     setEditUrl(bookmark.url);
@@ -355,13 +318,28 @@ const BookmarkCard = ({ bookmark, viewMode = "grid", onBookmarkChange }: Bookmar
               </p>
             )}
             
+            {/* Folder badge */}
             {bookmark.folder_name && (
-              <div className="mt-2">
-                <span className="text-xs text-muted-foreground">
-                  Folder: {bookmark.folder_name}
-                </span>
+              <div className="mt-2 max-w-full">
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Badge 
+                        variant="outline" 
+                        className="text-xs flex items-center gap-1.5 border-amber-500 bg-amber-500/10 hover:bg-amber-500/20 transition-colors max-w-full"
+                      >
+                        <FolderTree className="h-3 w-3 flex-shrink-0 mr-0.5 text-amber-500" />
+                        <span className="text-amber-700 dark:text-amber-300 truncate">{bookmark.folder_name}</span>
+                      </Badge>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      {bookmark.folder_name}
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               </div>
             )}
+
           </div>
           
           <div className="flex items-center justify-between px-4 py-2 bg-muted/30 text-xs text-muted-foreground mt-auto">
@@ -593,6 +571,17 @@ const BookmarkCard = ({ bookmark, viewMode = "grid", onBookmarkChange }: Bookmar
                 </Badge>
               )}
               
+              {/* Folder badge */}
+              {bookmark.folder_name && (
+                <Badge 
+                  variant="outline" 
+                  className="text-xs flex items-center gap-1.5 border-amber-500 bg-amber-500/10 hover:bg-amber-500/20 transition-colors"
+                >
+                  <FolderTree className="h-3 w-3 mr-0.5 text-amber-500" />
+                  <span className="text-amber-700 dark:text-amber-300">{bookmark.folder_name}</span>
+                </Badge>
+              )}
+              
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger className="ml-auto">
@@ -614,14 +603,6 @@ const BookmarkCard = ({ bookmark, viewMode = "grid", onBookmarkChange }: Bookmar
               <p className="text-muted-foreground text-sm mt-2">
                 {bookmark.notes}
               </p>
-            )}
-            
-            {bookmark.folder_name && (
-              <div className="mt-2">
-                <span className="text-xs text-muted-foreground">
-                  Folder: {bookmark.folder_name}
-                </span>
-              </div>
             )}
           </div>
           
