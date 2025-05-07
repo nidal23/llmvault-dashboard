@@ -526,7 +526,7 @@ const BookmarkList = ({ bookmarks, folderId, folderName, onBookmarksChange }: Bo
                         onClick={() => handlePageChange(page)}
                         className={cn(
                           "cursor-pointer",
-                          page === currentPage && "bg-primary text-primary-foreground hover:bg-primary/90 font-medium"
+                          page === currentPage && "bg-primary text-primary hover:bg-primary hover:text-primary/90 font-medium"
                         )}
                       >
                         {page}
