@@ -5,8 +5,10 @@ import { useLocation, useNavigate } from "react-router-dom";
 import Layout from "@/components/layout/Layout";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { useBookmarksStore } from "@/lib/stores/useBookmarksStore";
-import { Loader2 } from "lucide-react";
-import { useFoldersStore } from '@/lib/stores/useFoldersStore';
+import { Loader2, ChevronLeft, ChevronRight } from "lucide-react";
+import { useFoldersStore } from "@/lib/stores/useFoldersStore";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 const Bookmarks = () => {
   const location = useLocation();
@@ -17,6 +19,10 @@ const Bookmarks = () => {
   
   const [selectedFolder, setSelectedFolder] = useState<string | null>(folderParam);
   const [selectedFolderName, setSelectedFolderName] = useState<string | null>(null);
+  const [urlUpdateNeeded, setUrlUpdateNeeded] = useState<boolean>(false);
+  
+  // Add state for collapsible folder panel
+  const [folderPanelExpanded, setFolderPanelExpanded] = useState(true);
 
   const { 
     folders, 
@@ -61,11 +67,11 @@ const Bookmarks = () => {
   }, [user, selectedFolder, fetchBookmarks]);
 
   // Update selected folder state when URL parameter changes
+  // But ONLY when the URL actually changes from external sources (like direct navigation)
   useEffect(() => {
     const currentFolderParam = query.get('folder');
-    
-    // Only update if folder parameter has changed
-    if (currentFolderParam !== selectedFolder) {
+    // Only update state if URL folder is different from our state AND we haven't flagged a pending URL update
+    if (currentFolderParam !== selectedFolder && !urlUpdateNeeded) {
       setSelectedFolder(currentFolderParam);
       
       // Update bookmarks filter when folder changes
@@ -74,7 +80,15 @@ const Bookmarks = () => {
         fetchBookmarks(user.id, { folderId: currentFolderParam || undefined });
       }
     }
-  }, [location, query, selectedFolder, user, updateFilters, fetchBookmarks]);
+    
+    // Reset the URL update flag if we've done the update
+    if (urlUpdateNeeded && (
+      (currentFolderParam === selectedFolder) || 
+      (!currentFolderParam && !selectedFolder)
+    )) {
+      setUrlUpdateNeeded(false);
+    }
+  }, [location, folderParam, query, selectedFolder, user, updateFilters, fetchBookmarks, urlUpdateNeeded]);
   
   // Refresh folders data when bookmarks change
   useEffect(() => {
@@ -83,7 +97,19 @@ const Bookmarks = () => {
     }
   }, [lastFetchTime, user, fetchFolders]);
   
-  // Handler for folder selection from folder tree
+  // Update URL when selected folder changes via user interaction (NOT from URL change)
+  useEffect(() => {
+    // Only update if we've flagged that a URL update is needed
+    if (urlUpdateNeeded) {
+      if (selectedFolder) {
+        navigate(`?folder=${selectedFolder}`, { replace: true });
+      } else {
+        navigate('', { replace: true });
+      }
+    }
+  }, [selectedFolder, navigate, urlUpdateNeeded]);
+  
+  // Handler for folder selection from either sidebar or folder tree
   const handleFolderSelect = useCallback((folderId: string) => {
     // Set the selected folder
     setSelectedFolder(folderId);
@@ -96,31 +122,72 @@ const Bookmarks = () => {
       fetchBookmarks(user.id, { folderId });
     }
     
-    // Update URL (let's keep it simple - pagination will be handled by BookmarkList)
-    navigate(`?folder=${folderId}`, { replace: true });
-  }, [navigate, updateFilters, fetchBookmarks, user]);
+    // Flag that we need to update the URL (will be handled by the effect)
+    setUrlUpdateNeeded(true);
+    
+    // On small screens, auto-collapse the folder panel after selection
+    if (window.innerWidth < 1024) {
+      setFolderPanelExpanded(false);
+    }
+  }, [updateFilters, fetchBookmarks, user]);
+  
+  // Toggle folder panel expansion
+  const toggleFolderPanel = () => {
+    setFolderPanelExpanded(!folderPanelExpanded);
+  };
   
   return (
     <Layout>
       <div className="h-full flex flex-col">
-        {/* Breadcrumb navigation */}
+        {/* Breadcrumb navigation and folder toggle */}
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center">
             <h1 className="text-2xl font-bold">
               {selectedFolderName ? selectedFolderName : "All Conversations"}
             </h1>
           </div>
+          
+          {/* Responsive toggle button for folder panel */}
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={toggleFolderPanel}
+            className="lg:hidden"
+            aria-label={folderPanelExpanded ? "Hide folders" : "Show folders"}
+          >
+            Folders {folderPanelExpanded ? <ChevronLeft className="ml-1 h-4 w-4" /> : <ChevronRight className="ml-1 h-4 w-4" />}
+          </Button>
         </div>
         
         {/* Main content area with flexible layout */}
         <div className="flex-1 flex overflow-hidden">
-          {/* Folder panel - fixed width */}
-          <div className="w-80 xl:w-96 border-r border-border overflow-y-auto">
-            <div className="p-4 h-full">
+          {/* Folder panel - collapsible on mobile, fixed width on desktop */}
+          <div 
+            className={cn(
+              "transition-all duration-300 ease-in-out border-r border-border overflow-y-auto",
+              folderPanelExpanded ? "w-full lg:w-80 xl:w-96" : "w-0 lg:w-14 opacity-0 lg:opacity-100",
+              "lg:flex flex-col",
+              folderPanelExpanded ? "flex" : "hidden lg:flex"
+            )}
+          >
+            <div className={cn(
+              "p-4 h-full transition-opacity duration-300",
+              folderPanelExpanded ? "opacity-100" : "opacity-0 lg:opacity-100"
+            )}>
               <div className="flex items-center justify-between mb-4">
                 <h2 className="font-semibold text-lg">
                   Folders
                 </h2>
+                {/* Desktop toggle for folder panel */}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="hidden lg:flex"
+                  onClick={toggleFolderPanel}
+                  aria-label={folderPanelExpanded ? "Collapse folders" : "Expand folders"}
+                >
+                  {folderPanelExpanded ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                </Button>
               </div>
               
               {isLoadingFolders ? (
@@ -144,10 +211,28 @@ const Bookmarks = () => {
                 </div>
               )}
             </div>
+            
+            {/* Collapsed state toggle button (desktop only) */}
+            {!folderPanelExpanded && (
+              <div className="hidden lg:flex h-full items-center justify-center">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 rounded-full"
+                  onClick={toggleFolderPanel}
+                  aria-label="Expand folders"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
           </div>
           
           {/* Bookmark content - takes remaining space */}
-          <div className="flex-1 p-2 sm:p-4 overflow-auto">
+          <div className={cn(
+            "flex-1 transition-all duration-300 p-2 sm:p-4 overflow-auto",
+            folderPanelExpanded ? "lg:ml-0" : "lg:ml-0"
+          )}>
             {isLoadingBookmarks ? (
               <div className="flex items-center justify-center py-8">
                 <Loader2 className="h-6 w-6 animate-spin mr-2" />
