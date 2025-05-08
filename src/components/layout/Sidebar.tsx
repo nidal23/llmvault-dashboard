@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { 
   LayoutDashboard,
@@ -9,7 +9,8 @@ import {
   ChevronRight,
   ChevronDown,
   X,
-  Loader2
+  Loader2,
+  Search
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -36,6 +37,9 @@ interface SidebarProps {
   onOpenChange: (open: boolean) => void;
 }
 
+// Maximum nesting level for visual indentation - prevent overflow
+const MAX_INDENT_LEVEL = 4; // Reduced from 5 to 4
+
 const Sidebar = ({ open, onOpenChange }: SidebarProps) => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -47,6 +51,7 @@ const Sidebar = ({ open, onOpenChange }: SidebarProps) => {
   const [expandedFolders, setExpandedFolders] = useState<string[]>([]);
   const [newFolderName, setNewFolderName] = useState("");
   const [parentFolderId, setParentFolderId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
   
   // Drag and drop state
   const [draggedFolderId, setDraggedFolderId] = useState<string | null>(null);
@@ -63,6 +68,35 @@ const Sidebar = ({ open, onOpenChange }: SidebarProps) => {
   } = useFoldersStore();
 
   const prevTimeRef = useRef(lastFetchTime);
+
+  // Extract current folder ID from the URL
+  const query = new URLSearchParams(location.search);
+  const currentFolderId = query.get('folder');
+
+  // Auto-expand current folder and its parents
+  useEffect(() => {
+    if (currentFolderId) {
+      // Find all parent folders of the current folder
+      const findParentChain = (folderId: string, chain: string[] = []): string[] => {
+        const folder = folders.find(f => f.id === folderId);
+        if (!folder || !folder.parent_id) return chain;
+        return findParentChain(folder.parent_id, [...chain, folder.parent_id]);
+      };
+      
+      const parentChain = findParentChain(currentFolderId);
+      
+      // Add current folder and all its parents to expanded list
+      setExpandedFolders(prev => {
+        const newExpanded = [...prev];
+        [...parentChain, currentFolderId].forEach(id => {
+          if (!newExpanded.includes(id)) {
+            newExpanded.push(id);
+          }
+        });
+        return newExpanded;
+      });
+    }
+  }, [currentFolderId, folders]);
 
   useEffect(() => {
     if (user) {
@@ -102,12 +136,16 @@ const Sidebar = ({ open, onOpenChange }: SidebarProps) => {
     return allDescendants;
   }, [folders]);
 
-  const toggleFolder = (folderId: string) => {
-    if (expandedFolders.includes(folderId)) {
-      setExpandedFolders(expandedFolders.filter(id => id !== folderId));
-    } else {
-      setExpandedFolders([...expandedFolders, folderId]);
-    }
+  const toggleFolder = (folderId: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    
+    setExpandedFolders(prev => {
+      if (prev.includes(folderId)) {
+        return prev.filter(id => id !== folderId);
+      } else {
+        return [...prev, folderId];
+      }
+    });
   };
 
   const handleFolderClick = (folderId: string, e: React.MouseEvent) => {
@@ -129,9 +167,15 @@ const Sidebar = ({ open, onOpenChange }: SidebarProps) => {
       return;
     }
     
+    if (newFolderName.length > 25) {
+      toast.error('Folder name cannot exceed 25 characters');
+      return;
+    }
+    
     try {
-      // Note we now need to pass user.id
-      await handleCreateFolder(user.id, newFolderName, parentFolderId);
+      // Truncate to 25 characters if somehow it exceeded the limit
+      const folderName = newFolderName.substring(0, 25);
+      await handleCreateFolder(user.id, folderName, parentFolderId);
       
       // Reset form and close dialog
       setNewFolderName("");
@@ -216,20 +260,68 @@ const Sidebar = ({ open, onOpenChange }: SidebarProps) => {
     setDropTargetId(null);
   }, [getAllDescendants, moveFolder, user?.id]);
   
+  // Filter folders based on search query
+  const filteredFolders = useMemo(() => {
+    if (!searchQuery || !folders) return folders;
+    
+    const searchLower = searchQuery.toLowerCase();
+    
+    // First find folders that match
+    const matchingFolders = folders.filter(folder => 
+      folder.name.toLowerCase().includes(searchLower)
+    );
+    
+    // Get all parent folder IDs to maintain hierarchy
+    const parentIds = new Set<string>();
+    
+    const getParentChain = (folderId: string | null) => {
+      if (!folderId) return;
+      
+      parentIds.add(folderId);
+      const parent = folders.find(f => f.id === folderId)?.parent_id;
+      if (parent) getParentChain(parent);
+    };
+    
+    // Get all parent folders for each matching folder
+    matchingFolders.forEach(folder => {
+      getParentChain(folder.parent_id);
+    });
+    
+    // Return matching folders + their parent folders
+    return folders.filter(folder => 
+      matchingFolders.some(f => f.id === folder.id) || parentIds.has(folder.id)
+    );
+  }, [folders, searchQuery]);
+  
   // Create a recursive function to render folders
-  const renderFolderTree = (parentId: string | null) => {
-    const childFolders = folders.filter(folder => folder.parent_id === parentId);
+  // Modified to handle deep nesting more gracefully
+  const renderFolderTree = (parentId: string | null, depth = 0) => {
+    const childFolders = filteredFolders.filter(folder => folder.parent_id === parentId);
+    
+    // Sort folders alphabetically
+    childFolders.sort((a, b) => a.name.localeCompare(b.name));
     
     return childFolders.map(folder => {
-      const hasChildren = folders.some(f => f.parent_id === folder.id);
+      const hasChildren = filteredFolders.some(f => f.parent_id === folder.id);
       const isExpanded = expandedFolders.includes(folder.id);
+      const isSelected = currentFolderId === folder.id;
       const isBeingDragged = draggedFolderId === folder.id;
       const isDropTarget = dropTargetId === folder.id;
+      
+      // Limit visual indentation to prevent overflow
+      const visualDepth = Math.min(depth, MAX_INDENT_LEVEL);
+      const isDeeplyNested = depth > MAX_INDENT_LEVEL;
+      
+      // Highlight folders that match search
+      const isSearchMatch = searchQuery && folder.name.toLowerCase().includes(searchQuery.toLowerCase());
       
       return (
         <div 
           key={folder.id} 
-          className="ml-3"
+          className={cn(
+            "relative group",
+            isDeeplyNested && "border-l-2 border-primary/20"
+          )}
           draggable
           onDragStart={(e) => handleDragStart(e, folder.id)}
           onDragEnd={handleDragEnd}
@@ -238,38 +330,70 @@ const Sidebar = ({ open, onOpenChange }: SidebarProps) => {
         >
           <div 
             className={cn(
-              "flex items-center py-1 px-2 rounded-md hover:bg-accent cursor-pointer text-sm",
+              "flex items-center py-1.5 px-2 rounded-md hover:bg-accent cursor-pointer text-sm relative",
               isDropTarget && "bg-accent/70 outline outline-1 outline-primary",
-              isBeingDragged && "opacity-50"
+              isBeingDragged && "opacity-50",
+              isSelected && "bg-accent text-accent-foreground",
+              isSearchMatch && "bg-yellow-500/10",
+              "overflow-hidden"
             )}
+            style={{ marginLeft: `${visualDepth * 3}px` }} // Even smaller indent (3px)
             onClick={(e) => handleFolderClick(folder.id, e)}
           >
-            {hasChildren ? (
-              <div onClick={(e) => {
-                e.stopPropagation();
-                toggleFolder(folder.id);
-              }}>
-                {isExpanded ? (
-                  <ChevronDown className="h-4 w-4 mr-1 text-muted-foreground" />
-                ) : (
-                  <ChevronRight className="h-4 w-4 mr-1 text-muted-foreground" />
-                )}
-              </div>
-            ) : (
-              <div className="w-4 mr-1" />
-            )}
-            <FolderTree className="h-4 w-4 mr-2 text-muted-foreground" />
-            <span>{folder.name}</span>
-            {(folder.bookmarkCount !== undefined && folder.bookmarkCount > 0) && (
-              <span className="ml-auto text-xs text-muted-foreground">
-                {folder.bookmarkCount}
+            {/* For deeply nested folders, add a depth indicator */}
+            {isDeeplyNested && (
+              <span className="absolute left-0 top-0 bottom-0 flex items-center justify-center w-4 text-[10px] text-muted-foreground opacity-70">
+                {depth - MAX_INDENT_LEVEL + 1}
               </span>
             )}
+            
+            {/* Toggle expander */}
+            <div 
+              className="w-4 h-4 mr-0.5 flex items-center justify-center flex-shrink-0"
+              onClick={(e) => hasChildren ? toggleFolder(folder.id, e) : undefined}
+            >
+              {hasChildren ? (
+                isExpanded ? (
+                  <ChevronDown className="h-3 w-3 text-muted-foreground" />
+                ) : (
+                  <ChevronRight className="h-3 w-3 text-muted-foreground" />
+                )
+              ) : (
+                <span className="w-3" />
+              )}
+            </div>
+            
+            {/* Folder icon */}
+            <FolderTree className="h-3.5 w-3.5 mr-1 text-muted-foreground flex-shrink-0" />
+            
+            {/* Folder name with truncation to 12 characters */}
+            <span className="folder-name" title={folder.name}>
+              {folder.name.length > 12 ? folder.name.substring(0, 12) + '...' : folder.name}
+            </span>
+            
+            <div className="folder-badges">
+              {/* Subfolder count */}
+              {hasChildren && (
+                <span className="count-badge folder-badge">
+                  {filteredFolders.filter(f => f.parent_id === folder.id).length}
+                </span>
+              )}
+              
+              {/* Bookmark count */}
+              {(folder.bookmarkCount !== undefined && folder.bookmarkCount > 0) && (
+                <span className="count-badge bookmark-badge">
+                  {folder.bookmarkCount}
+                </span>
+              )}
+            </div>
+            
+            {/* Actions menu button (added on hover) could go here */}
           </div>
           
+          {/* Render children if expanded */}
           {isExpanded && hasChildren && (
-            <div className="pl-2 border-l border-border ml-3 mt-1">
-              {renderFolderTree(folder.id)}
+            <div>
+              {renderFolderTree(folder.id, depth + 1)}
             </div>
           )}
         </div>
@@ -321,9 +445,9 @@ const Sidebar = ({ open, onOpenChange }: SidebarProps) => {
           open ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <div className="flex h-16 items-center justify-between px-4">
+        <div className="flex h-16 items-center justify-between px-3">
           <Link to="/" className="flex items-center gap-2">
-            <span className="font-semibold text-xl text-sidebar-foreground">ConvoStack</span>
+            <span className="font-semibold text-lg text-sidebar-foreground">ConvoStack</span>
           </Link>
           <Button 
             variant="ghost" 
@@ -336,31 +460,31 @@ const Sidebar = ({ open, onOpenChange }: SidebarProps) => {
           </Button>
         </div>
         
-        <ScrollArea className="flex-1 px-4 py-4 h-[calc(100vh-4rem)]">
+        <ScrollArea className="flex-1 px-2 py-4 h-[calc(100vh-4rem)]">
           <div className="flex flex-col gap-1">
             <Link 
               to="/dashboard" 
               className={`menu-item ${location.pathname === "/dashboard" ? "menu-item-active" : ""}`}
               onClick={handleCloseSidebar}
             >
-              <LayoutDashboard className="h-5 w-5" />
-              <span>Dashboard</span>
+              <LayoutDashboard className="h-4 w-4" />
+              <span className="ml-2">Dashboard</span>
             </Link>
             <Link 
               to="/bookmarks" 
               className={`menu-item ${location.pathname === "/bookmarks" ? "menu-item-active" : ""}`}
               onClick={handleCloseSidebar}
             >
-              <Bookmark className="h-5 w-5" />
-              <span>All Conversations</span>
+              <Bookmark className="h-4 w-4" />
+              <span className="ml-2">All Conversations</span>
             </Link>
             <Link 
               to="/settings" 
               className={`menu-item ${location.pathname === "/settings" ? "menu-item-active" : ""}`}
               onClick={handleCloseSidebar}
             >
-              <Settings className="h-5 w-5" />
-              <span>Settings</span>
+              <Settings className="h-4 w-4" />
+              <span className="ml-2">Settings</span>
             </Link>
           </div>
           
@@ -392,9 +516,13 @@ const Sidebar = ({ open, onOpenChange }: SidebarProps) => {
                       placeholder="Enter folder name"
                       className="col-span-3"
                       value={newFolderName}
-                      onChange={(e) => setNewFolderName(e.target.value)}
+                      onChange={(e) => setNewFolderName(e.target.value.substring(0, 25))}
+                      maxLength={25}
                       autoFocus
                     />
+                    <p className="col-span-3 col-start-2 text-xs text-muted-foreground mt-1">
+                      {newFolderName.length}/25 characters
+                    </p>
                   </div>
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="parent" className="text-right">
@@ -445,6 +573,29 @@ const Sidebar = ({ open, onOpenChange }: SidebarProps) => {
               </DialogContent>
             </Dialog>
           </div>
+          
+          {/* Add search box to quickly filter folders */}
+          {folders.length > 7 && (
+            <div className="relative mb-3">
+              <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+              <Input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search folders..."
+                className="h-7 pl-8 text-sm py-1"
+              />
+              {searchQuery && (
+                <Button
+                  variant="ghost" 
+                  size="icon"
+                  className="absolute right-1 top-1/2 -translate-y-1/2 h-5 w-5 hover:bg-transparent"
+                  onClick={() => setSearchQuery("")}
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              )}
+            </div>
+          )}
           
           <div className="mt-2">
             {isLoading ? (

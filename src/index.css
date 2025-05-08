@@ -160,4 +160,34 @@
   .menu-item-active {
     @apply bg-accent text-accent-foreground;
   }
+  /* Enhanced count badge styles */
+.count-badge {
+  @apply text-xs px-1 py-0.5 rounded-sm min-w-[1.25rem] text-center;
+}
+
+.folder-badge {
+  @apply bg-amber-500/10 text-amber-500;
+}
+
+.bookmark-badge {
+  @apply bg-primary/10 text-primary;
+}
+
+/* Custom styles for deeply nested folders */
+.nested-folder {
+  @apply border-l border-border/40;
+}
+
+.deep-nested-folder {
+  @apply border-l-2 border-primary/20;
+}
+
+/* Add this to fix overflow issues in folder display */
+.folder-name {
+  @apply truncate max-w-[70%];
+}
+
+.folder-badges {
+  @apply flex items-center gap-1 flex-shrink-0 ml-auto;
+}
 }

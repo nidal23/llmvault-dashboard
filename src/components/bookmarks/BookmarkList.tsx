@@ -47,7 +47,7 @@ import {
   PaginationPrevious 
 } from "@/components/ui/pagination";
 
-// Import our new SubFolderView component
+// Import SubFolderView component if it exists
 import SubFolderView from "@/components/bookmarks/SubFolderView";
 
 interface BookmarkListProps {
@@ -293,17 +293,17 @@ const BookmarkList = ({ bookmarks, folderId, folderName, onBookmarksChange }: Bo
   return (
     <div className="w-full animate-fade-in">
       <div className="flex flex-col gap-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-medium sm:hidden">
-            {/* This heading only shows on mobile since the main heading is in the parent component */}
+        {/* Title and Add button side by side - only on mobile */}
+        <div className="flex items-center justify-between mb-2 sm:hidden">
+          <h2 className="text-xl font-medium">
             {folderName || "All Conversations"}
           </h2>
           <Button 
-            className="apple-button" 
+            className="ml-auto apple-button bookmark-add-button" 
             onClick={openNewBookmarkDialog}
           >
             <Plus className="mr-2 h-4 w-4" />
-            Add Conversation
+            Add
           </Button>
         </div>
         
@@ -458,7 +458,7 @@ const BookmarkList = ({ bookmarks, folderId, folderName, onBookmarksChange }: Bo
       </div>
       
       {/* SubFolderView - Show subfolders of the current folder if one is selected */}
-      {folderId && folders && folders.length > 0 && (
+      {folderId && folders && folders.length > 0 && typeof SubFolderView === 'function' && (
         <SubFolderView 
           folders={folders}
           currentFolderId={folderId}
@@ -475,7 +475,7 @@ const BookmarkList = ({ bookmarks, folderId, folderName, onBookmarksChange }: Bo
               : "Get started by adding your first conversation"}
           </p>
           <Button 
-            className="mt-4 text-primary/70 hover:text-primary cursor-pointer" 
+            className="mt-4 text-primary/80 hover:text-primary cursor-pointer" 
             variant="outline" 
             onClick={openNewBookmarkDialog}
           >
@@ -526,7 +526,7 @@ const BookmarkList = ({ bookmarks, folderId, folderName, onBookmarksChange }: Bo
                         onClick={() => handlePageChange(page)}
                         className={cn(
                           "cursor-pointer",
-                          page === currentPage && "bg-primary text-primary hover:bg-primary hover:text-primary/90 font-medium"
+                          page === currentPage && "bg-primary text-primary/90 hover:bg-primary/90 hover:text-primary font-medium"
                         )}
                       >
                         {page}
