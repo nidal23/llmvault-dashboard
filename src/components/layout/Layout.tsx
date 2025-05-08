@@ -1,4 +1,3 @@
-//components/layout/Layout.tsx
 import { useState, useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import Header from "./Header";
@@ -62,7 +61,7 @@ const Layout = ({ children }: LayoutProps) => {
           open={sidebarOpen} 
           onOpenChange={setSidebarOpen} 
         />
-        <main className={`flex-1 p-4 md:p-6 overflow-auto transition-all duration-300 ${sidebarOpen ? "md:ml-64" : ""}`}>
+        <main className={`flex-1 p-4 md:p-6 overflow-auto transition-all duration-300 ${sidebarOpen ? "md:ml-72" : ""}`}>
           <div className="animate-fade-in">
             {children}
           </div>
