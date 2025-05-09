@@ -112,7 +112,7 @@ export const useBookmarksStore = create<BookmarksState>()(
           const data = await withTimeout(getBookmarks(userId, {
             ...filtersToUse,
             page: currentPage,
-            limit: filtersToUse.limit || 30
+            // limit: filtersToUse.limit || 30
           }), 10000);
           
           if (resetPagination) {

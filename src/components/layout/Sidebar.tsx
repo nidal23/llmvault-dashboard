@@ -368,7 +368,7 @@ const Sidebar = ({ open, onOpenChange }: SidebarProps) => {
             
             {/* Folder name with truncation to 12 characters */}
             <span className="folder-name" title={folder.name}>
-              {folder.name.length > 12 ? folder.name.substring(0, 12) + '...' : folder.name}
+              {folder.name.length > 18 ? folder.name.substring(0, 18) + '...' : folder.name}
             </span>
             
             <div className="folder-badges">

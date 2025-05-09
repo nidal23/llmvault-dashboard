@@ -400,53 +400,72 @@ const BookmarkList = ({ bookmarks, folderId, folderName, onBookmarksChange }: Bo
         {/* Stats bar with total count and pagination info */}
         <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
           <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1.5">
-              <BookmarkIcon className="h-4 w-4" />
-              <span>{filteredBookmarks.length} conversations</span>
-              {filteredBookmarks.length > BOOKMARKS_PER_PAGE && (
-                <span className="text-xs opacity-70">
-                  (showing {((currentPage - 1) * BOOKMARKS_PER_PAGE) + 1}-
-                  {Math.min(currentPage * BOOKMARKS_PER_PAGE, filteredBookmarks.length)} of {filteredBookmarks.length})
-                </span>
-              )}
-            </div>
+              <div className="flex items-center gap-1.5">
+                <BookmarkIcon className="h-4 w-4" />
+                <span>{filteredBookmarks.length} conversations</span>
+                {filteredBookmarks.length > BOOKMARKS_PER_PAGE && (
+                  <span className="text-xs opacity-70">
+                    (showing {((currentPage - 1) * BOOKMARKS_PER_PAGE) + 1}-
+                    {Math.min(currentPage * BOOKMARKS_PER_PAGE, filteredBookmarks.length)} of {filteredBookmarks.length})
+                  </span>
+                )}
+              </div>
             
-            {filterPlatform !== "all" && (
-              <Badge variant="outline" className="flex items-center gap-1.5">
-                <SlidersHorizontal className="h-3 w-3" />
-                <span>{filterPlatform}</span>
-                <X 
-                  className="h-3 w-3 ml-1 cursor-pointer" 
-                  onClick={() => {
-                    setFilterPlatform("all");
-                    handleFilterOrSortChange();
-                  }}
-                />
-              </Badge>
-            )}
+              {filterPlatform !== "all" && (
+                <Badge 
+                  variant="outline" 
+                  className="flex items-center gap-1.5 border-primary/30 bg-primary/10 text-primary"
+                >
+                  <SlidersHorizontal className="h-3 w-3" />
+                  <span>{filterPlatform}</span>
+                  <div 
+                    className="ml-1 p-0.5 rounded-full hover:bg-primary/20 cursor-pointer flex items-center justify-center" 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setFilterPlatform("all");
+                      handleFilterOrSortChange();
+                    }}
+                    role="button"
+                    aria-label="Remove platform filter"
+                  >
+                    <X className="h-3 w-3" />
+                  </div>
+                </Badge>
+              )}
             
             {filterLabel !== "all" && (
-              <Badge variant="outline" className="flex items-center gap-1.5">
+              <Badge 
+                variant="outline" 
+                className="flex items-center gap-1.5 border-primary/30 bg-primary/10 text-primary"
+              >
                 <Tag className="h-3 w-3" />
                 <span>{filterLabel}</span>
-                <X 
-                  className="h-3 w-3 ml-1 cursor-pointer" 
-                  onClick={() => {
+                <div 
+                  className="ml-1 p-0.5 rounded-full hover:bg-primary/20 cursor-pointer flex items-center justify-center" 
+                  onClick={(e) => {
+                    e.stopPropagation();
                     setFilterLabel("all");
                     handleFilterOrSortChange();
                   }}
-                />
+                  role="button"
+                  aria-label="Remove label filter"
+                >
+                  <X className="h-3 w-3" />
+                </div>
               </Badge>
             )}
             
             {/* Show folder badge if we're in a folder */}
             {folderId && folderName && (
-              <Badge variant="outline" className="flex items-center gap-1.5 border-amber-500 bg-amber-500/10">
+              <Badge 
+                variant="outline" 
+                className="flex items-center gap-1.5 border-amber-500/30 bg-amber-500/10"
+              >
                 <FolderTreeIcon className="h-3 w-3 text-amber-500" />
                 <span className="text-amber-700 dark:text-amber-300">{folderName}</span>
               </Badge>
             )}
-          </div>
+            </div>
           
           {/* Mini pagination info for mobile */}
           {totalPages > 1 && (
@@ -458,7 +477,7 @@ const BookmarkList = ({ bookmarks, folderId, folderName, onBookmarksChange }: Bo
       </div>
       
       {/* SubFolderView - Show subfolders of the current folder if one is selected */}
-      {folderId && folders && folders.length > 0 && typeof SubFolderView === 'function' && (
+      {folderId && folders && folders.length > 0 && (
         <SubFolderView 
           folders={folders}
           currentFolderId={folderId}

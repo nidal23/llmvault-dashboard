@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { useLocation, Link, useNavigate } from "react-router-dom";
-import { Menu, Search, User, Settings, Sun, Moon, LogOut, Crown, CircleUser } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { Menu, User, Settings, Sun, Moon, LogOut, Crown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -9,7 +9,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Input } from "@/components/ui/input";
+// import { Input } from "@/components/ui/input";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { useUserSettingsStore } from "@/lib/stores/useUserSettingsStore";
 import { useProfileStore } from "@/lib/stores/useProfileStore";
@@ -25,7 +25,7 @@ interface HeaderProps {
 const Header = ({ sidebarOpen, setSidebarOpen }: HeaderProps) => {
   const [isScrolled, setIsScrolled] = useState(false);
   const navigate = useNavigate();
-  const location = useLocation();
+  // const location = useLocation();
   const { user } = useAuth();
   const { settings, updateTheme, fetchSettings } = useUserSettingsStore();
   const { tier } = useSubscriptionStore();
@@ -42,7 +42,7 @@ const Header = ({ sidebarOpen, setSidebarOpen }: HeaderProps) => {
   });
 
   // Check if URL has /dashboard
-  const isDashboard = location.pathname.includes("/dashboard");
+  // const isDashboard = location.pathname.includes("/dashboard");
 
   // Fetch user settings and profile when user is available
   useEffect(() => {
@@ -143,19 +143,6 @@ const Header = ({ sidebarOpen, setSidebarOpen }: HeaderProps) => {
           <span className="font-semibold text-xl">ConvoStack</span>
         </Link>
       </div>
-
-      {isDashboard && (
-        <div className="hidden md:flex max-w-md w-full mx-4">
-          <div className="relative w-full">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              type="search"
-              placeholder="Search conversations..."
-              className="w-full pl-8 bg-muted/50 border-none focus-visible:ring-1"
-            />
-          </div>
-        </div>
-      )}
       
       <div className="flex items-center gap-2">
         {tier === 'free' && (
@@ -181,9 +168,20 @@ const Header = ({ sidebarOpen, setSidebarOpen }: HeaderProps) => {
         
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="rounded-full">
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="rounded-full overflow-hidden flex items-center justify-center"
+            >
               {isLoadingProfile ? (
-                <div className="h-5 w-5 rounded-full bg-muted animate-pulse"></div>
+                <div className="h-8 w-8 rounded-full bg-muted animate-pulse"></div>
+              ) : profile?.avatar_url && !avatarError ? (
+                <img 
+                  src={profile.avatar_url} 
+                  alt={displayName}
+                  className="h-8 w-8 rounded-full object-cover"
+                  onError={() => setAvatarError(true)}
+                />
               ) : (
                 <User className="h-5 w-5" />
               )}
@@ -191,23 +189,9 @@ const Header = ({ sidebarOpen, setSidebarOpen }: HeaderProps) => {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56 glass-card">
-            <div className="flex items-center justify-start gap-2 p-2">
-              <div className="rounded-full bg-primary/10 p-1 h-10 w-10 flex items-center justify-center overflow-hidden">
-              {profile?.avatar_url && !avatarError ? (
-                <img 
-                  src={profile.avatar_url} 
-                  alt={displayName}
-                  className="h-full w-full rounded-full object-cover"
-                  onError={() => setAvatarError(true)}
-                />
-              ) : (
-                <CircleUser className="h-8 w-8 text-primary" />
-              )}
-              </div>
-              <div className="flex flex-col space-y-0.5 max-w-[180px]">
-                <p className="text-sm font-medium truncate">{displayName}</p>
-                <p className="text-xs text-muted-foreground truncate">{userEmail}</p>
-              </div>
+            <div className="px-3 py-2">
+              <p className="text-sm font-medium">{displayName}</p>
+              <p className="text-xs text-muted-foreground truncate">{userEmail}</p>
             </div>
             <DropdownMenuSeparator />
             <Link to="/settings">
