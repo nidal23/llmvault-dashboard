@@ -271,7 +271,10 @@ const BookmarkCard = ({ bookmark, viewMode = "grid", onBookmarkChange }: Bookmar
                     </Badge>
                   )}
                   {bookmark.label && (
-                    <Badge variant="outline" className="flex items-center gap-1">
+                    <Badge 
+                      variant="outline" 
+                      className="flex items-center gap-1 border-primary/30 bg-primary/10 text-primary"
+                    >
                       <Tag className="h-3 w-3" />
                       <span>{bookmark.label}</span>
                     </Badge>
@@ -332,9 +335,6 @@ const BookmarkCard = ({ bookmark, viewMode = "grid", onBookmarkChange }: Bookmar
                         <span className="text-amber-700 dark:text-amber-300 truncate">{bookmark.folder_name}</span>
                       </Badge>
                     </TooltipTrigger>
-                    <TooltipContent>
-                      {bookmark.folder_name}
-                    </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
               </div>
@@ -565,7 +565,10 @@ const BookmarkCard = ({ bookmark, viewMode = "grid", onBookmarkChange }: Bookmar
                 </Badge>
               )}
               {bookmark.label && (
-                <Badge variant="outline" className="flex items-center gap-1">
+                <Badge 
+                  variant="outline" 
+                  className="flex items-center gap-1 border-primary/30 bg-primary/10 text-primary"
+                >
                   <Tag className="h-3 w-3" />
                   <span>{bookmark.label}</span>
                 </Badge>
