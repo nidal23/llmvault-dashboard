@@ -115,6 +115,94 @@ export type Database = {
         }
         Relationships: []
       }
+      prompts: {
+        Row: {
+          id: string
+          title: string
+          description: string | null
+          content: string
+          category: string | null
+          tags: string[] | null
+          is_favorite: boolean
+          usage: number
+          user_id: string
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          title: string
+          description?: string | null
+          content: string
+          category?: string | null
+          tags?: string[] | null
+          is_favorite?: boolean
+          usage?: number
+          user_id: string
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          title?: string
+          description?: string | null
+          content?: string
+          category?: string | null
+          tags?: string[] | null
+          is_favorite?: boolean
+          usage?: number
+          user_id?: string
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      prompt_links: {
+        Row: {
+          id: string
+          prompt_id: string
+          bookmark_id: string | null
+          folder_id: string | null
+          created_at: string | null
+        }
+        Insert: {
+          id?: string
+          prompt_id: string
+          bookmark_id?: string | null
+          folder_id?: string | null
+          created_at?: string | null
+        }
+        Update: {
+          id?: string
+          prompt_id?: string
+          bookmark_id?: string | null
+          folder_id?: string | null
+          created_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prompt_links_prompt_id_fkey"
+            columns: ["prompt_id"]
+            isOneToOne: false
+            referencedRelation: "prompts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prompt_links_bookmark_id_fkey"
+            columns: ["bookmark_id"]
+            isOneToOne: false
+            referencedRelation: "bookmarks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prompt_links_folder_id_fkey"
+            columns: ["folder_id"]
+            isOneToOne: false
+            referencedRelation: "folders"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       subscriptions: {
         Row: {
           created_at: string | null
@@ -158,18 +246,21 @@ export type Database = {
         Row: {
           bookmark_count: number | null
           folder_count: number | null
+          prompt_count: number | null
           last_calculated_at: string | null
           user_id: string
         }
         Insert: {
           bookmark_count?: number | null
           folder_count?: number | null
+          prompt_count: number | null
           last_calculated_at?: string | null
           user_id: string
         }
         Update: {
           bookmark_count?: number | null
           folder_count?: number | null
+          prompt_count: number | null
           last_calculated_at?: string | null
           user_id?: string
         }
@@ -319,7 +410,23 @@ export type Bookmark = Database['public']['Tables']['bookmarks']['Row'];
 export type Subscription = Database['public']['Tables']['subscriptions']['Row'];
 export type UsageStats = Database['public']['Tables']['usage_stats']['Row'];
 export type UserSettings = Database['public']['Tables']['user_settings']['Row'];
+export type Prompt = Database['public']['Tables']['prompts']['Row'];
+export type PromptLink = Database['public']['Tables']['prompt_links']['Row'];
 
+// Prompt-related types
+export type PromptInsert = Database['public']['Tables']['prompts']['Insert'];
+export type PromptUpdate = Database['public']['Tables']['prompts']['Update'];
+
+export interface PromptWithLinks extends Prompt {
+  linked_bookmarks?: string[];
+  linked_folders?: string[];
+}
+
+export type CreatePromptInput = Omit<PromptInsert, 'id' | 'user_id' | 'created_at' | 'updated_at' | 'usage' | 'is_favorite'> & {
+  is_favorite?: boolean;
+};
+
+export type UpdatePromptInput = Partial<Omit<Prompt, 'id' | 'user_id' | 'created_at' | 'updated_at'>>;
 // Add additional types for UI needs
 export function safeParsePlatforms(platforms: Json | null): PlatformWithColor[] {
   if (!platforms) return [];
