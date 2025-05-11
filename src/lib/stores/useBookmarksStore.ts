@@ -79,6 +79,8 @@ export const useBookmarksStore = create<BookmarksState>()(
       
       // Actions
       fetchBookmarks: async (userId: string, customFilters?: BookmarkFilters, resetPagination = true) => {
+
+        console.log('user id recived: ', userId)
         // Skip if no user ID
         if (!userId) {
           set({ 
@@ -114,7 +116,9 @@ export const useBookmarksStore = create<BookmarksState>()(
             page: currentPage,
             // limit: filtersToUse.limit || 30
           }), 10000);
-          
+
+          console.log('data: ', data)
+        
           if (resetPagination) {
             set({ bookmarks: data });
           } else {

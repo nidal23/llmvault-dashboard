@@ -10,7 +10,8 @@ import {
   ChevronDown,
   X,
   Loader2,
-  Search
+  Search,
+  Wand2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -477,6 +478,14 @@ const Sidebar = ({ open, onOpenChange }: SidebarProps) => {
             >
               <Bookmark className="h-4 w-4" />
               <span className="ml-2">All Conversations</span>
+            </Link>
+            <Link 
+              to="/prompts" 
+              className={`menu-item ${location.pathname === "/prompts" ? "menu-item-active" : ""}`}
+              onClick={handleCloseSidebar}
+            >
+              <Wand2 className="h-4 w-4" />
+              <span className="ml-2">Prompt Studio</span>
             </Link>
             <Link 
               to="/settings" 
