@@ -15,6 +15,7 @@ import {
   Folder,
   ChevronRight,
   ChevronDown,
+  Search
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -50,6 +51,244 @@ import { useBookmarksStore } from "@/lib/stores/useBookmarksStore";
 import { useFoldersStore } from "@/lib/stores/useFoldersStore";
 import { toast } from "sonner";
 import { Bookmark, FolderWithCount, Folder as LinkedFolder } from "@/lib/supabase/database.types";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
+
+// Import TreeFolderSelector for enhanced folder selection
+// import TreeFolderSelector from "@/components/bookmarks/TreeFolderSelector";
+
+// Define a type for our hierarchical folder structure
+interface FolderTreeNode extends FolderWithCount {
+  children: FolderTreeNode[];
+}
+
+/**
+ * A folder selector component that displays folders in an expandable tree view
+ */
+const TreeFolderSelector = ({
+  folders,
+  selectedFolderId,
+  onSelect,
+  className,
+  placeholder = "Select a folder"
+}: {
+  folders: FolderWithCount[];
+  selectedFolderId: string;
+  onSelect: (folderId: string) => void;
+  className?: string;
+  placeholder?: string;
+}) => {
+  const [open, setOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [expandedFolders, setExpandedFolders] = useState<string[]>([]);
+
+  // Get selected folder name
+  const selectedFolder = React.useMemo(() => 
+    folders.find(f => f.id === selectedFolderId), 
+    [folders, selectedFolderId]
+  );
+
+  // Organize folders into a tree structure
+  const folderTree = React.useMemo(() => {
+    // First, build a map of folder IDs to their data
+    const folderMap = new Map<string, FolderWithCount>();
+    folders.forEach(folder => folderMap.set(folder.id, folder));
+
+    // Function to organize folders into a hierarchical structure
+    const buildFolderTree = (parentId: string | null): FolderTreeNode[] => {
+      return folders
+        .filter(folder => folder.parent_id === parentId)
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .map(folder => ({
+          ...folder,
+          children: buildFolderTree(folder.id)
+        }));
+    };
+
+    return buildFolderTree(null);
+  }, [folders]);
+
+  // Filter folders based on search query if provided
+  const filteredFolderTree = React.useMemo(() => {
+    if (!searchQuery.trim()) return folderTree;
+
+    // Helper function to check if a folder or any of its descendants match
+    const folderOrDescendantsMatch = (folder: FolderTreeNode): boolean => {
+      const nameMatches = folder.name.toLowerCase().includes(searchQuery.toLowerCase());
+      
+      // If this folder matches, return true immediately
+      if (nameMatches) return true;
+      
+      // Check children (if any)
+      if (folder.children && folder.children.length > 0) {
+        return folder.children.some(child => folderOrDescendantsMatch(child));
+      }
+      
+      return false;
+    };
+
+    // Filter the folder tree
+    const filterTree = (tree: FolderTreeNode[]): FolderTreeNode[] => {
+      return tree
+        .filter(folder => folderOrDescendantsMatch(folder))
+        .map(folder => ({
+          ...folder,
+          children: folder.children ? filterTree(folder.children) : []
+        }));
+    };
+
+    return filterTree(folderTree);
+  }, [folderTree, searchQuery]);
+
+  // Toggle folder expansion state
+  const toggleFolder = React.useCallback((folderId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setExpandedFolders(prev => 
+      prev.includes(folderId) 
+        ? prev.filter(id => id !== folderId) 
+        : [...prev, folderId]
+    );
+  }, []);
+
+  // Recursive function to render the folder tree
+  const renderFolderTree = React.useCallback((tree: FolderTreeNode[], level = 0) => {
+    return tree.map(folder => {
+      const hasChildren = folder.children && folder.children.length > 0;
+      const isExpanded = expandedFolders.includes(folder.id);
+      const isSelected = folder.id === selectedFolderId;
+
+      return (
+        <div key={folder.id} className="select-none">
+          <div 
+            className={cn(
+              "flex items-center py-1 px-2 rounded-md text-sm cursor-pointer",
+              isSelected ? "bg-primary/10 text-primary font-medium" : "hover:bg-accent",
+              "transition-colors"
+            )}
+            style={{ paddingLeft: `${(level * 16) + 8}px` }}
+            onClick={() => {
+              onSelect(folder.id);
+              setOpen(false);
+            }}
+          >
+            <div 
+              className="mr-1 flex h-5 w-5 items-center justify-center"
+              onClick={(e) => hasChildren ? toggleFolder(folder.id, e) : null}
+            >
+              {hasChildren ? (
+                isExpanded ? (
+                  <ChevronDown className="h-4 w-4" />
+                ) : (
+                  <ChevronRight className="h-4 w-4" />
+                )
+              ) : (
+                <span className="w-4" />
+              )}
+            </div>
+            <Folder className="h-4 w-4 mr-2 flex-shrink-0 text-muted-foreground" />
+            <span className="truncate flex-1">{folder.name}</span>
+            {folder.bookmarkCount !== undefined && folder.bookmarkCount > 0 && (
+              <span className="ml-auto text-xs text-muted-foreground">
+                {folder.bookmarkCount}
+              </span>
+            )}
+            {isSelected && (
+              <div className="ml-2 h-4 w-4 text-primary">✓</div>
+            )}
+          </div>
+          
+          {/* Render children if expanded */}
+          {hasChildren && isExpanded && (
+            <div className="ml-2">
+              {renderFolderTree(folder.children, level + 1)}
+            </div>
+          )}
+        </div>
+      );
+    });
+  }, [expandedFolders, selectedFolderId, onSelect, toggleFolder]);
+
+  // Auto-expand parent folders of the selected folder
+  const expandSelectedFolderParents = React.useCallback(() => {
+    if (!selectedFolderId) return;
+    
+    // Helper function to find parents of a folder
+    const findParents = (folderId: string, parents: string[] = []): string[] => {
+      const folder = folders.find(f => f.id === folderId);
+      if (!folder || !folder.parent_id) return parents;
+      
+      return findParents(folder.parent_id, [...parents, folder.parent_id]);
+    };
+    
+    const parentFolders = findParents(selectedFolderId);
+    setExpandedFolders(prev => {
+      const newExpanded = [...prev];
+      parentFolders.forEach(id => {
+        if (!newExpanded.includes(id)) {
+          newExpanded.push(id);
+        }
+      });
+      return newExpanded;
+    });
+  }, [selectedFolderId, folders]);
+
+  // When dropdown opens, auto-expand parents
+  const handleOpenChange = (isOpen: boolean) => {
+    setOpen(isOpen);
+    if (isOpen) {
+      expandSelectedFolderParents();
+    }
+  };
+
+  return (
+    <Popover open={open} onOpenChange={handleOpenChange}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className={cn("w-full justify-between", className)}
+        >
+          <div className="flex items-center overflow-hidden">
+            <Folder className="h-4 w-4 mr-2 shrink-0 text-muted-foreground" />
+            <span className="truncate">
+              {selectedFolder ? selectedFolder.name : placeholder}
+            </span>
+          </div>
+          <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[300px] p-0" align="start">
+        <div className="flex flex-col">
+          {/* Search bar */}
+          <div className="flex items-center border-b px-3 py-2">
+            <Search className="h-4 w-4 shrink-0 opacity-50 mr-2" />
+            <Input
+              placeholder="Search folders..." 
+              className="h-8 flex-1 border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+          
+          {/* Folder tree */}
+          <ScrollArea className="h-[300px] max-h-[50vh]">
+            <div className="p-2">
+              {filteredFolderTree.length > 0 ? (
+                renderFolderTree(filteredFolderTree)
+              ) : (
+                <div className="py-6 text-center text-sm text-muted-foreground">
+                  {searchQuery ? "No matching folders found" : "No folders available"}
+                </div>
+              )}
+            </div>
+          </ScrollArea>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+};
 
 const PromptEditor = () => {
   const { id } = useParams<{ id: string }>();
@@ -72,7 +311,7 @@ const PromptEditor = () => {
     fetchLinkedFolders
   } = usePromptsStore();
   
-  const { bookmarks, fetchBookmarks } = useBookmarksStore();
+  const { bookmarks, fetchBookmarks, updateFilters } = useBookmarksStore();
   const { folders, fetchFolders } = useFoldersStore();
   
   // Main prompt state
@@ -127,63 +366,62 @@ const PromptEditor = () => {
     
     // Load available bookmarks and folders for linking
     if (user) {
-      fetchBookmarks(user.id).then(bookmarksData => {
-      console.log("Bookmarks loaded:", bookmarksData);
-    });
-    fetchFolders(user.id).then(foldersData => {
-      console.log("Folders loaded:", foldersData);
-    });
+      // Clear any existing folder filter before fetching bookmarks
+      updateFilters({ folderId: undefined });
+      // Then fetch all bookmarks without folder restrictions
+      fetchBookmarks(user.id, { folderId: undefined });
+      fetchFolders(user.id);
     }
   }, [id, isNewPrompt, user, fetchPromptById, fetchBookmarks, fetchFolders, fetchLinkedBookmarks, fetchLinkedFolders]);
   
   const handleSave = async () => {
-  if (!user) {
-    toast.error("You must be logged in to save prompts");
-    return;
-  }
-  
-  if (!title.trim() || !content.trim()) {
-    toast.error("Title and content are required");
-    return;
-  }
-  
-  setIsSaving(true);
-  
-  try {
-    if (isNewPrompt) {
-      // Use the correct type for createPrompt
-      const promptData = {
-        title,
-        content,
-        user_id: user.id,
-        description: description || null,
-        category: category || null,
-        tags: tags.length > 0 ? tags : null,
-        is_favorite: isFavorite
-      };
-      
-      const newPrompt = await createPrompt(promptData);
-      toast.success("Prompt created successfully");
-      navigate(`/prompts/${newPrompt.id}`);
-    } else if (id) {
-      // For updates, use the update type
-      await updatePrompt(id, {
-        title,
-        description,
-        content,
-        category,
-        tags,
-        is_favorite: isFavorite
-      });
-      toast.success("Prompt updated successfully");
+    if (!user) {
+      toast.error("You must be logged in to save prompts");
+      return;
     }
-  } catch (error) {
-    console.error("Error saving prompt:", error);
-    toast.error("Failed to save prompt");
-  } finally {
-    setIsSaving(false);
-  }
-};
+    
+    if (!title.trim() || !content.trim()) {
+      toast.error("Title and content are required");
+      return;
+    }
+    
+    setIsSaving(true);
+    
+    try {
+      if (isNewPrompt) {
+        // Use the correct type for createPrompt
+        const promptData = {
+          title,
+          content,
+          user_id: user.id,
+          description: description || null,
+          category: category || null,
+          tags: tags.length > 0 ? tags : null,
+          is_favorite: isFavorite
+        };
+        
+        const newPrompt = await createPrompt(promptData);
+        toast.success("Prompt created successfully");
+        navigate(`/prompts/${newPrompt.id}`);
+      } else if (id) {
+        // For updates, use the update type
+        await updatePrompt(id, {
+          title,
+          description,
+          content,
+          category,
+          tags,
+          is_favorite: isFavorite
+        });
+        toast.success("Prompt updated successfully");
+      }
+    } catch (error) {
+      console.error("Error saving prompt:", error);
+      toast.error("Failed to save prompt");
+    } finally {
+      setIsSaving(false);
+    }
+  };
   
   const handleDelete = async () => {
     if (!id || isNewPrompt) return;
@@ -201,51 +439,6 @@ const PromptEditor = () => {
     }
   };
 
-    const organizeFoldersHierarchy = (allFolders: LinkedFolder[]): FolderWithCount[] => {
-    const folderMap = new Map<string, FolderWithCount>();
-    const rootFolders: FolderWithCount[] = [];
-    
-    // First pass: create a map of all folders with their data
-    allFolders.forEach(folder => {
-      folderMap.set(folder.id, { ...folder, children: [] });
-    });
-    
-    // Second pass: organize into hierarchy
-    folderMap.forEach(folder => {
-      if (folder.parent_id && folderMap.has(folder.parent_id)) {
-        // This is a child folder, add it to its parent's children
-        const parent = folderMap.get(folder.parent_id);
-        parent?.children?.push(folder);
-      } else {
-        // This is a root folder
-        rootFolders.push(folder);
-      }
-    });
-    
-    return rootFolders;
-  };
-
-  const renderFolderOptions = (
-    folders: FolderWithCount[], 
-    depth: number = 0,
-    linkedFolderIds: string[] = []
-  ) => {
-    return folders.map(folder => (
-      <React.Fragment key={folder.id}>
-        <SelectItem 
-          value={folder.id} 
-          disabled={linkedFolderIds.includes(folder.id)}
-          className={`pl-${depth * 4 + 2}`}
-        >
-          {depth > 0 && "┗ "}{folder.name}
-        </SelectItem>
-        {folder.children && folder.children.length > 0 && 
-          renderFolderOptions(folder.children, depth + 1, linkedFolderIds)
-        }
-      </React.Fragment>
-    ));
-  };
-  
   const handleToggleFavorite = async () => {
     if (isNewPrompt) {
       setIsFavorite(!isFavorite);
@@ -361,9 +554,13 @@ const PromptEditor = () => {
     }
   };
 
-  const linkedFolderIds = linkedFolders.map(f => f.id);
-  const hierarchicalFolders = organizeFoldersHierarchy(folders);
+  // Get list of bookmarks that aren't already linked
+  const availableBookmarks = bookmarks.filter(
+    bookmark => !linkedBookmarks.some(b => b.id === bookmark.id)
+  );
 
+  // Get list of folders that aren't already linked
+  const linkedFolderIds = linkedFolders.map(f => f.id);
   
   return (
     <div className="space-y-6">
@@ -439,7 +636,7 @@ const PromptEditor = () => {
           
           {!isNewPrompt && (
             <Button 
-              variant="primary"
+              // variant="primary"
               onClick={handleUsePrompt}
               className="flex items-center gap-2"
             >
@@ -561,7 +758,8 @@ const PromptEditor = () => {
                />
                <Button 
                  type="button" 
-                 variant="outline" 
+                //  variant="outline"
+                 className="border border-accent text-amber-50"
                  onClick={handleAddTag}
                  disabled={!tagInput.trim()}
                >
@@ -611,39 +809,31 @@ const PromptEditor = () => {
             ) : (
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <Label>Linked Conversations</Label>
-                  {bookmarks.length === 0 ? (
+                  <Label>Add Conversation</Label>
+                  {availableBookmarks.length === 0 ? (
                     <Button 
                       variant="outline" 
                       size="sm" 
-                      onClick={() => toast.info("No conversations available to link")}
                       className="w-[200px] flex justify-between items-center"
                       disabled
                     >
-                      <span>No conversations</span>
+                      <span>No conversations available</span>
                       <ChevronDown className="h-4 w-4 opacity-50" />
                     </Button>
                   ) : (
+                    // This dropdown should not be disabled if there are available bookmarks
                     <Select onValueChange={(value) => handleLinkBookmark(value)}>
                       <SelectTrigger className="w-[200px]">
-                        <SelectValue placeholder="Add conversation" />
+                        <SelectValue placeholder="Select conversation" />
                       </SelectTrigger>
                       <SelectContent className="max-h-[300px]">
-                        {bookmarks
-                          .filter(bookmark => !linkedBookmarks.some(b => b.id === bookmark.id))
-                          .map(bookmark => (
-                            <SelectItem key={bookmark.id} value={bookmark.id}>
-                              <div className="truncate">
-                                {bookmark.title || "Untitled Conversation"}
-                              </div>
-                            </SelectItem>
-                          ))}
-                        {bookmarks.length > 0 && 
-                        bookmarks.filter(bookmark => !linkedBookmarks.some(b => b.id === bookmark.id)).length === 0 && (
-                          <div className="p-2 text-sm text-muted-foreground">
-                            All conversations are already linked
-                          </div>
-                        )}
+                        {availableBookmarks.map(bookmark => (
+                          <SelectItem key={bookmark.id} value={bookmark.id}>
+                            <div className="truncate">
+                              {bookmark.title || "Untitled Conversation"}
+                            </div>
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   )}
@@ -703,7 +893,7 @@ const PromptEditor = () => {
             )}
           </div>
            
-           {/* Linked folders */}
+           {/* Linked folders using TreeFolderSelector */}
            <div>
              <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
                <Folder className="h-4 w-4 text-primary" />
@@ -718,22 +908,28 @@ const PromptEditor = () => {
                </div>
              ) : (
                <div className="space-y-4">
-                 <div className="flex items-center justify-between">
-                   <Label>Linked Folders</Label>
-                   <Select onValueChange={(value) => handleLinkFolder(value)}>
-                    <SelectTrigger className="w-[200px]">
-                      <SelectValue placeholder="Add folder" />
-                    </SelectTrigger>
-                    <SelectContent className="max-h-[400px]">
-                      {folders.length === 0 ? (
-                        <div className="p-2 text-sm text-muted-foreground">
-                          No folders available
-                        </div>
-                      ) : (
-                        renderFolderOptions(hierarchicalFolders, 0, linkedFolderIds)
-                      )}
-                    </SelectContent>
-                  </Select>
+                 <div className="flex items-center justify-between mb-4">
+                   <Label>Add Folder</Label>
+                   <div className="w-[200px]">
+                     {folders.length === 0 ? (
+                       <Button 
+                         variant="outline" 
+                         className="w-full flex justify-between items-center"
+                         disabled
+                       >
+                         <span>No folders available</span>
+                         <ChevronDown className="h-4 w-4 opacity-50" />
+                       </Button>
+                     ) : (
+                       // Enhanced folder selector using tree view
+                       <TreeFolderSelector
+                         folders={folders.filter(f => !linkedFolderIds.includes(f.id))}
+                         selectedFolderId=""
+                         onSelect={handleLinkFolder}
+                         placeholder="Select a folder"
+                       />
+                     )}
+                   </div>
                  </div>
                  
                  {linkedFolders.length === 0 ? (
@@ -741,13 +937,9 @@ const PromptEditor = () => {
                       <p className="text-muted-foreground">
                         No folders linked yet
                       </p>
-                      <Button 
-                        variant="link" 
-                        size="sm" 
-                        className="mt-2"
-                      >
+                      <p className="text-xs text-muted-foreground mt-2">
                         Link folders to organize related prompts
-                      </Button>
+                      </p>
                     </div>
                   ) : (
                     <div className="space-y-3">
@@ -861,6 +1053,6 @@ const PromptEditor = () => {
      </Dialog>
    </div>
  );
-};
+}
 
 export default PromptEditor;
