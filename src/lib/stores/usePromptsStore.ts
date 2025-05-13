@@ -66,7 +66,7 @@ export const usePromptsStore = create<PromptsState>((set, get) => ({
       set({ prompts: data || [], isLoading: false });
     } catch (error) {
       console.error('Error fetching prompts:', error);
-      set({ error: error.message, isLoading: false });
+      set({ error: (error as Error).message, isLoading: false });
     }
   },
   
