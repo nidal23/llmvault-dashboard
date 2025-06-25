@@ -10,26 +10,25 @@ import {
   FolderWithCount 
 } from '@/lib/supabase/database.types';
 
-type CreatePromptParams = {
-  title: string;
-  content: string;
-  user_id: string;
-  description?: string | null;
-  category?: string | null;
-  tags?: string[] | null;
-  is_favorite?: boolean;
-  usage?: number;
-};
+// Update the PromptsState interface in src/lib/stores/usePromptsStore.ts
 
 interface PromptsState {
   prompts: Prompt[];
   isLoading: boolean;
   error: string | null;
   
-  // CRUD operations
+  // CRUD operations - UPDATE THESE SIGNATURES
   fetchPrompts: (userId: string) => Promise<void>;
   fetchPromptById: (id: string) => Promise<Prompt | null>;
-  createPrompt: (promptData: CreatePromptParams) => Promise<Prompt>;
+  createPrompt: (userId: string, promptData: {
+    title: string;
+    content: string;
+    description?: string | null;
+    category?: string | null;
+    tags?: string[] | null;
+    is_favorite?: boolean;
+    folder_id?: string | null;
+  }) => Promise<Prompt>;  // UPDATED SIGNATURE
   updatePrompt: (id: string, promptData: PromptUpdate) => Promise<void>;
   deletePrompt: (id: string) => Promise<void>;
   
@@ -87,40 +86,51 @@ export const usePromptsStore = create<PromptsState>((set, get) => ({
     }
   },
   
-  createPrompt: async (promptData: CreatePromptParams): Promise<Prompt> => {
-    try {
-      // Explicitly cast to the database's expected insert type
-      const dataToInsert: DbPromptInsert = {
-        title: promptData.title,
-        content: promptData.content,
-        user_id: promptData.user_id,
-        description: promptData.description || null,
-        category: promptData.category || null,
-        tags: promptData.tags || null,
-        is_favorite: promptData.is_favorite || false,
-        usage: promptData.usage || 0
-      };
-      
-      const { data, error } = await supabase
-        .from('prompts')
-        .insert(dataToInsert)
-        .select()
-        .single();
-      
-      if (error) throw error;
-      
-      const newPrompt = data as Prompt;
-      
-      set(state => ({
-        prompts: [newPrompt, ...state.prompts]
-      }));
-      
-      return newPrompt;
-    } catch (error) {
-      console.error('Error creating prompt:', error);
-      throw error;
-    }
-  },
+  createPrompt: async (userId: string, promptData: {
+  title: string;
+  content: string;
+  description?: string | null;
+  category?: string | null;
+  tags?: string[] | null;
+  is_favorite?: boolean;
+  folder_id?: string | null;
+  preferred_platforms?: string[] | null; // ADD THIS LINE
+}) => {
+  try {
+    // Explicitly cast to the database's expected insert type
+    const dataToInsert: DbPromptInsert = {
+      title: promptData.title,
+      content: promptData.content,
+      user_id: userId,
+      description: promptData.description || null,
+      category: promptData.category || null,
+      tags: promptData.tags || null,
+      is_favorite: promptData.is_favorite || false,
+      usage: 0,
+      folder_id: promptData.folder_id || null,
+      preferred_platforms: promptData.preferred_platforms || null, // ADD THIS LINE
+    };
+    
+    const { data, error } = await supabase
+      .from('prompts')
+      .insert(dataToInsert)
+      .select()
+      .single();
+    
+    if (error) throw error;
+    
+    const newPrompt = data as Prompt;
+    
+    set(state => ({
+      prompts: [newPrompt, ...state.prompts]
+    }));
+    
+    return newPrompt;
+  } catch (error) {
+    console.error('Error creating prompt:', error);
+    throw error;
+  }
+},
 
   
   updatePrompt: async (id: string, promptData: Partial<Prompt>) => {
